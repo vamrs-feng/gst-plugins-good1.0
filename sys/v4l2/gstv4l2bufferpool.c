@@ -1030,7 +1030,9 @@ gst_v4l2_buffer_pool_orphan (GstV4l2Object * v4l2object)
   GstV4l2BufferPool *pool;
   gboolean ret;
 
-  g_return_val_if_fail (bpool, FALSE);
+  /* Nothing to do if there is no pool */
+  if (!bpool)
+    return TRUE;
 
   pool = GST_V4L2_BUFFER_POOL (bpool);
 
@@ -1077,7 +1079,7 @@ gst_v4l2_buffer_pool_flush_start (GstBufferPool * bpool)
 
   GST_DEBUG_OBJECT (pool, "start flushing");
 
-  gst_poll_set_flushing (pool->poll, TRUE);
+  gst_poll_set_flushing (pool->obj->poll, TRUE);
 
   GST_OBJECT_LOCK (pool);
   pool->empty = FALSE;
@@ -1098,13 +1100,12 @@ gst_v4l2_buffer_pool_flush_stop (GstBufferPool * bpool)
   if (pool->other_pool && gst_buffer_pool_is_active (pool->other_pool))
     gst_buffer_pool_set_flushing (pool->other_pool, FALSE);
 
-  gst_poll_set_flushing (pool->poll, FALSE);
+  gst_poll_set_flushing (pool->obj->poll, FALSE);
 }
 
 static GstFlowReturn
 gst_v4l2_buffer_pool_poll (GstV4l2BufferPool * pool, gboolean wait)
 {
-  gint ret;
   GstClockTime timeout;
 
   if (wait)
@@ -1119,7 +1120,7 @@ gst_v4l2_buffer_pool_poll (GstV4l2BufferPool * pool, gboolean wait)
 
     if (!wait && pool->empty) {
       GST_OBJECT_UNLOCK (pool);
-      goto no_buffers;
+      return GST_V4L2_FLOW_LAST_BUFFER;
     }
 
     while (pool->empty)
@@ -1128,87 +1129,14 @@ gst_v4l2_buffer_pool_poll (GstV4l2BufferPool * pool, gboolean wait)
     GST_OBJECT_UNLOCK (pool);
   }
 
-  if (!pool->can_poll_device) {
+  if (!pool->obj->can_poll_device) {
     if (wait)
-      goto done;
+      return GST_FLOW_OK;
     else
-      goto no_buffers;
+      return GST_V4L2_FLOW_LAST_BUFFER;
   }
 
-  GST_LOG_OBJECT (pool, "polling device");
-
-again:
-  ret = gst_poll_wait (pool->poll, timeout);
-  if (G_UNLIKELY (ret < 0)) {
-    switch (errno) {
-      case EBUSY:
-        goto stopped;
-      case EAGAIN:
-      case EINTR:
-        goto again;
-      case ENXIO:
-        GST_WARNING_OBJECT (pool,
-            "v4l2 device doesn't support polling. Disabling"
-            " using libv4l2 in this case may cause deadlocks");
-        pool->can_poll_device = FALSE;
-        goto done;
-      default:
-        goto select_error;
-    }
-  }
-
-  if (gst_poll_fd_has_error (pool->poll, &pool->pollfd))
-    goto select_error;
-
-  /* PRI is used to signal that events are available */
-  if (gst_poll_fd_has_pri (pool->poll, &pool->pollfd)) {
-    struct v4l2_event event = { 0, };
-
-    if (!gst_v4l2_dequeue_event (pool->obj, &event))
-      goto dqevent_failed;
-
-    if (event.type != V4L2_EVENT_SOURCE_CHANGE) {
-      GST_INFO_OBJECT (pool, "Received unhandled event, ignoring.");
-      goto again;
-    }
-
-    if ((event.u.src_change.changes & V4L2_EVENT_SRC_CH_RESOLUTION) == 0) {
-      GST_DEBUG_OBJECT (pool,
-          "Received non-resolution source-change, ignoring.");
-      goto again;
-    }
-
-    return GST_V4L2_FLOW_RESOLUTION_CHANGE;
-  }
-
-  if (ret == 0)
-    goto no_buffers;
-
-done:
-  return GST_FLOW_OK;
-
-  /* ERRORS */
-stopped:
-  {
-    GST_DEBUG_OBJECT (pool, "stop called");
-    return GST_FLOW_FLUSHING;
-  }
-select_error:
-  {
-    GST_ELEMENT_ERROR (pool->obj->element, RESOURCE, READ, (NULL),
-        ("poll error %d: %s (%d)", ret, g_strerror (errno), errno));
-    return GST_FLOW_ERROR;
-  }
-no_buffers:
-  {
-    return GST_V4L2_FLOW_LAST_BUFFER;
-  }
-dqevent_failed:
-  {
-    GST_ELEMENT_ERROR (pool->obj->element, RESOURCE, READ, (NULL),
-        ("dqevent error: %s (%d)", g_strerror (errno), errno));
-    return GST_FLOW_ERROR;
-  }
+  return gst_v4l2_object_poll (pool->obj, timeout);
 }
 
 static GstFlowReturn
@@ -1330,7 +1258,7 @@ gst_v4l2_buffer_pool_dqbuf (GstV4l2BufferPool * pool, GstBuffer ** buffer,
   GST_LOG_OBJECT (pool, "dequeueing a buffer");
 
   res = gst_v4l2_allocator_dqbuf (pool->vallocator, &group);
-  if (res == GST_FLOW_EOS)
+  if (res == GST_V4L2_FLOW_LAST_BUFFER)
     goto eos;
   if (res != GST_FLOW_OK)
     goto dqbuf_failed;
@@ -1480,7 +1408,7 @@ poll_failed:
   }
 eos:
   {
-    return GST_FLOW_EOS;
+    return GST_V4L2_FLOW_LAST_BUFFER;
   }
 dqbuf_failed:
   {
@@ -1757,8 +1685,6 @@ gst_v4l2_buffer_pool_finalize (GObject * object)
   if (pool->video_fd >= 0)
     pool->obj->close (pool->video_fd);
 
-  gst_poll_free (pool->poll);
-
   /* This can't be done in dispose method because we must not set pointer
    * to NULL as it is part of the v4l2object and dispose could be called
    * multiple times */
@@ -1774,8 +1700,6 @@ gst_v4l2_buffer_pool_finalize (GObject * object)
 static void
 gst_v4l2_buffer_pool_init (GstV4l2BufferPool * pool)
 {
-  pool->poll = gst_poll_new (TRUE);
-  pool->can_poll_device = TRUE;
   g_cond_init (&pool->empty_cond);
   pool->empty = TRUE;
   pool->orphaned = FALSE;
@@ -1838,17 +1762,8 @@ gst_v4l2_buffer_pool_new (GstV4l2Object * obj, GstCaps * caps)
   g_object_ref_sink (pool);
   g_free (name);
 
-  gst_poll_fd_init (&pool->pollfd);
-  pool->pollfd.fd = fd;
-  gst_poll_add_fd (pool->poll, &pool->pollfd);
-  if (V4L2_TYPE_IS_OUTPUT (obj->type))
-    gst_poll_fd_ctl_write (pool->poll, &pool->pollfd, TRUE);
-  else
-    gst_poll_fd_ctl_read (pool->poll, &pool->pollfd, TRUE);
-
   pool->video_fd = fd;
   pool->obj = obj;
-  pool->can_poll_device = TRUE;
 
   pool->vallocator = gst_v4l2_allocator_new (GST_OBJECT (pool), obj);
   if (pool->vallocator == NULL)
@@ -2004,8 +1919,9 @@ gst_v4l2_buffer_pool_process (GstV4l2BufferPool * pool, GstBuffer ** buf,
             /* If we have no more buffer, and can allocate it time to do so */
             if (num_queued == 0) {
               if (GST_V4L2_ALLOCATOR_CAN_ALLOCATE (pool->vallocator, MMAP)) {
+                GST_DEBUG_OBJECT (pool, "Resurrect for empty queue");
                 ret = gst_v4l2_buffer_pool_resurrect_buffer (pool);
-                if (ret == GST_FLOW_OK)
+                if (ret == GST_FLOW_OK || ret == GST_FLOW_FLUSHING)
                   goto done;
               }
             }
@@ -2015,8 +1931,9 @@ gst_v4l2_buffer_pool_process (GstV4l2BufferPool * pool, GstBuffer ** buf,
               GstBuffer *copy;
 
               if (GST_V4L2_ALLOCATOR_CAN_ALLOCATE (pool->vallocator, MMAP)) {
+                GST_DEBUG_OBJECT (pool, "Resurrect for threshold");
                 ret = gst_v4l2_buffer_pool_resurrect_buffer (pool);
-                if (ret == GST_FLOW_OK)
+                if (ret == GST_FLOW_OK || ret == GST_FLOW_FLUSHING)
                   goto done;
               }
 
@@ -2248,7 +2165,7 @@ buffer_truncated:
   }
 eos:
   {
-    GST_DEBUG_OBJECT (pool, "end of stream reached");
+    GST_DEBUG_OBJECT (pool, "end of sequence reached");
     gst_buffer_unref (*buf);
     *buf = NULL;
     return GST_V4L2_FLOW_LAST_BUFFER;
@@ -2298,22 +2215,69 @@ gst_v4l2_buffer_pool_copy_at_threshold (GstV4l2BufferPool * pool, gboolean copy)
   GST_OBJECT_UNLOCK (pool);
 }
 
-gboolean
+static GstFlowReturn
+gst_v4l2_buffer_pool_flush_events (GstV4l2Object * v4l2object)
+{
+  GstFlowReturn ret = GST_FLOW_OK;
+  gboolean event_found;
+
+  /* FIXME simplify this when we drop legacy support for driver without poll()
+   * support. When we do, we can switch the video_fd to non blocking, and just
+   * pop the events directly. */
+
+  do {
+    struct v4l2_event event = { 0, };
+    gint poll_ret;
+
+    event_found = FALSE;
+
+    gst_poll_set_flushing (v4l2object->poll, FALSE);
+
+    do {
+      /* GstPoll don't have 0ns timeout, but 1 will do */
+      poll_ret = gst_poll_wait (v4l2object->poll, 1);
+    } while (poll_ret == EAGAIN || poll_ret == EINTR);
+
+    if (gst_poll_fd_has_pri (v4l2object->poll, &v4l2object->pollfd)) {
+      if (!gst_v4l2_dequeue_event (v4l2object, &event))
+        return GST_FLOW_ERROR;
+
+      event_found = TRUE;
+
+      if (event.type == V4L2_EVENT_SOURCE_CHANGE &&
+          (event.u.src_change.changes & V4L2_EVENT_SRC_CH_RESOLUTION)) {
+        GST_DEBUG_OBJECT (v4l2object->dbg_obj,
+            "Can't streamon capture as the resolution have changed.");
+        ret = GST_V4L2_FLOW_RESOLUTION_CHANGE;
+      }
+    }
+  } while (event_found);
+
+  return ret;
+}
+
+GstFlowReturn
 gst_v4l2_buffer_pool_flush (GstV4l2Object * v4l2object)
 {
   GstBufferPool *bpool = gst_v4l2_object_get_buffer_pool (v4l2object);
   GstV4l2BufferPool *pool;
-  gboolean ret = TRUE;
+  GstFlowReturn ret = GST_FLOW_OK;
 
   if (!bpool)
-    return FALSE;
+    return GST_FLOW_ERROR;
 
   pool = GST_V4L2_BUFFER_POOL (bpool);
 
   gst_v4l2_buffer_pool_streamoff (pool);
 
-  if (!V4L2_TYPE_IS_OUTPUT (pool->obj->type))
-    ret = gst_v4l2_buffer_pool_streamon (pool);
+  if (!V4L2_TYPE_IS_OUTPUT (pool->obj->type)) {
+    ret = gst_v4l2_buffer_pool_flush_events (v4l2object);
+
+    /* If the format haven't change, avoid reallocation to go back to
+     * streaming */
+    if (ret == GST_FLOW_OK)
+      ret = gst_v4l2_buffer_pool_streamon (pool);
+  }
 
   gst_object_unref (bpool);
   return ret;
@@ -2331,13 +2295,5 @@ gst_v4l2_buffer_pool_flush (GstV4l2Object * v4l2object)
 void
 gst_v4l2_buffer_pool_enable_resolution_change (GstV4l2BufferPool * pool)
 {
-  guint32 input_id = 0;
-
-  g_return_if_fail (!gst_buffer_pool_is_active (GST_BUFFER_POOL (pool)));
-
-  /* Make sure we subscribe for the current input */
-  gst_v4l2_get_input (pool->obj, &input_id);
-
-  if (gst_v4l2_subscribe_event (pool->obj, V4L2_EVENT_SOURCE_CHANGE, input_id))
-    gst_poll_fd_ctl_pri (pool->poll, &pool->pollfd, TRUE);
+  gst_v4l2_object_subscribe_event (pool->obj, V4L2_EVENT_SOURCE_CHANGE);
 }

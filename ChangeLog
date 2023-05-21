@@ -1,3 +1,611 @@
+=== release 1.22.3 ===
+
+2023-05-19 09:23:19 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* NEWS:
+	* README.md:
+	* RELEASE:
+	* docs/gst_plugins_cache.json:
+	* gst-plugins-good.doap:
+	* meson.build:
+	  Release 1.22.3
+
+2023-05-06 11:17:43 +0800  Shengqi Yu <shengqi.yu@mediatek.com>
+
+	* sys/v4l2/gstv4l2object.c:
+	  v4l2object: fix some errors in probe_caps_for_fromat
+	  1, there is a mistake when print stepwise.max_height, fix it
+	  2, modify the calculation of width and height under the step wise
+	  condition
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4672>
+
+2023-05-18 11:58:51 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2allocator.c:
+	* sys/v4l2/gstv4l2bufferpool.c:
+	* sys/v4l2/gstv4l2videodec.c:
+	  v4l2: videodec: Fix stalls on empty buffer
+	  Drivers may signal end of sequence using an empty buffer and LAST buffer
+	  set, or just an empty buffer on certain legacy implementation. When this
+	  occured, we'd send GST_V4L2_FLOW_LAST_BUFFER were the code expected
+	  GST_FLOW_EOS. Stop abusing GST_FLOW_EOS and port all the code to the new
+	  GST_V4L2_FLOW_LAST_BUFFER.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4671>
+
+2023-05-15 19:10:39 +1000  Jan Schmidt <jan@centricular.com>
+
+	* gst/multifile/gstsplitmuxpartreader.c:
+	  splitmuxsrc: Make PTS contiguous by preference
+	  Make splitmuxsrc deal better with stream reordering by
+	  making the largest observed PTS contiguous in the
+	  next fragment. Previously, it selected DTS, but then
+	  aligned that with the segment start of the next fragment,
+	  which holds PTS values - leading to glitches in
+	  streams that don't have PTS = DTS at the start.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4660>
+
+2023-05-15 11:45:12 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* gst/isomp4/gstqtmux.c:
+	  qtmux: Fix extraction of CEA608 data from S334-1A packets
+	  The index is already incremented by 3 every iteration so multiplying it
+	  by 3 additionally on each array access is doing it twice and does not
+	  work.
+	  This caused invalid files to be created if there's more than one CEA608
+	  triplet in a buffer, and out of bounds memory reads.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4645>
+
+2023-05-05 18:27:14 +0200  Piotr Brzeziński <piotr@centricular.com>
+
+	* sys/osxvideo/osxvideosink.m:
+	  osxvideosink: fix deadlock upon closing output window
+	  Invoking gst_osx_video_sink_osxwindow_destroy() can currently cause a deadlock
+	  because showFrame() keeps trying to get the same lock as well. Moving the lock
+	  closer to where it's actually needed seems to be enough to fix the issue for now.
+	  Reported-by: Alexande B <abobrikovich@gmail.com>
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4627>
+
+2023-05-11 16:25:11 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* tests/check/elements/qtdemux.c:
+	* tests/files/editlists.mp4.gz.gz:
+	  qtdemux: add unit test for edit list regression
+	  File is the mp4 file from #2549 with the mdat atom
+	  zeroed out and compressed. We compress twice because
+	  apparently compressing 5MB of zeroes effectively in
+	  one run is too difficult for gzip.
+	  https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/2549
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4605>
+
+2023-05-05 19:41:34 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* gst/isomp4/qtdemux.c:
+	  Revert "qtdemux: fix conditions for end of segment in reverse playback"
+	  This reverts commit 9deb3c27acd4161f810cd782f03bcdaccf2643c7.
+	  The test case that was described in the associated MR
+	  (https://gitlab.freedesktop.org/gstreamer/gst-plugins-good/-/merge_requests/262)
+	  remains adequately fixed by a related MR that was merged later
+	  (https://gitlab.freedesktop.org/gstreamer/gst-plugins-good/-/merge_requests/275).
+	  It introduced incorrect logic that broke edit lists as described in
+	  https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/2549
+	  Fixes: https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/2549
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4605>
+
+2023-05-09 17:28:49 +0200  François Laignel <francois@centricular.com>
+
+	  rtpmanager/rtsession: data race leading to critical warnings
+	  This is a fix for a data race leading to:
+	  > GLib-CRITICAL: g_hash_table_foreach:
+	  >   assertion 'version == hash_table->version' failed
+	  Identified sequence:
+	  * `rtp_session_on_timeout` acquires the lock on `session` and proceeds with its
+	  processing.
+	  * `rtp_session_process_rtcp` is called (debug log : received RTCP packet) and
+	  attempts to acquire the lock on `session`, which is still held by
+	  `rtp_session_on_timeout`.
+	  * as part of an hash table iterator, `rtp_session_on_timeout` transitively
+	  invokes `source_caps` which releases the lock on `session` so as to call
+	  `session->callbacks.caps`.
+	  * Since `rtp_session_process_rtcp` was waiting for the lock to be released, it
+	  succeeds in acquiring it and proceeds with `rtp_session_process_rr` which
+	  transitively calls `g_hash_table_insert` via `add_source`.
+	  * After `source_caps` re-acquires the lock and gives the control flow back to
+	  `rtp_session_on_timeout`, the hash table iterator is changed, resulting in the
+	  assertion failure.
+	  This commits copies `sess->ssrcs[sess->mask_idx]` and iterates on the copy so
+	  the iterator is not affected by a concurrent change due to the lock being
+	  released in the `source_caps` callback.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4585>
+
+2023-05-09 14:37:25 +0100  Philippe Normand <philn@igalia.com>
+
+	* docs/gst_plugins_cache.json:
+	* gst/dtmf/gstrtpdtmfdepay.c:
+	  rtpdtmfdepay: Classify as RTP element
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4584>
+
+2023-05-09 14:36:56 +0100  Philippe Normand <philn@igalia.com>
+
+	* docs/gst_plugins_cache.json:
+	* gst/dtmf/gstrtpdtmfsrc.c:
+	  rtpdtmfsrc: Classify as RTP source
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4584>
+
+2023-05-01 14:01:02 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2deviceprovider.c:
+	  v4l2: device provider: Fix GMainLoop leak
+	  On very quick start/stop, the mainloop may never be run. As a side
+	  effect, our idle stop function is not really being ran, so we can't rely
+	  on that to free the main loop. Simply unref the mainloop when the
+	  thread have completely stop.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4539>
+
+2023-05-03 13:21:23 +0200  Xabier Rodriguez Calvar <calvaris@igalia.com>
+
+	* gst/isomp4/qtdemux.c:
+	  qtdemux: emit no-more-pads after pruning old pads
+	  If we don't do that, clients can rely on this signal to see the final pad
+	  topology but it won't be the real one as some of them will disappear after
+	  emitting that signal. This can happen after injecting a different init segment.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4557>
+
+2023-05-03 15:42:01 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* docs/gst_plugins_cache.json:
+	* gst/videofilter/gstvideoflip.c:
+	  videoflip: fix setting of method property at construction time
+	  Since c2f890ab, element properties are gathered from the parse-launch
+	  line and passed at object construction.
+	  This caused the following issue to happen in videoflip:
+	  * videoflip installed a CONSTRUCT property named method, now deprecated
+	  * videoflip now also overrides that property with a video-direction
+	  property
+	  GObject construction causes method to be set first at construct time,
+	  with the user-provided value, then video-direction with the default
+	  value.
+	  The user-provided value was thus overridden, causing a regression.
+	  Fix by not installing the properties as CONSTRUCT, and explicitly
+	  implementing constructed() instead in order to ensure that we do still
+	  call gst_video_flip_set_method() at least once during construction.
+	  Fixes https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/2529
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4551>
+
+2023-05-01 14:14:25 +0200  François Laignel <francois@centricular.com>
+
+	  rtpmanager/rtsession: race conditions leading to critical warnings
+	  While testing the [implementation for insertable streams] in `webrtcsink` &
+	  `webrtcsrc`, I encountered critical warnings, which turned out to result from
+	  two race conditions in `rtpsession`. Both race conditions produce:
+	  > GLib-CRITICAL: g_hash_table_foreach:
+	  >   assertion 'version == hash_table->version' failed
+	  This commit fixes one of the race conditions observed.
+	  In its simplest form, the test consists in 2 pipelines and a Signalling server:
+	  * pipelines_sink: audiotestsrc ! webrtcsink
+	  * pipelines_src: webrtcsrc ! appsrc
+	  1. Set `pipelines_sink` to `Playing`.
+	  2. The Signalling server delivers the `producer_id`.
+	  3. Initialize `pipelines_src` to establish a session with `producer_id`.
+	  4. Set `pipelines_src` to `Playing`.
+	  5. Wait for a buffer to be received by the `appsrc`.
+	  6. Set `pipelines_src` to `Null`.
+	  7. Set `pipelines_sink` to `Null`.
+	  The race condition happens in the following sequence:
+	  * `webrtcsink` runs a task to periodically retrieve statistics from `webrtcbin`.
+	  This transitively ends up executing `rtp_session_create_stats`.
+	  * `pipelines_sink` is set to `Null`.
+	  * In `Paused` to `Ready`, `gst_rtp_session_change_state()` calls
+	  `rtp_session_reset()`.
+	  * The assertion failure occurs when `rtp_session_reset` is called while
+	  `rtp_session_create_stats` is executing.
+	  This is because `rtp_session_create_stats` acquires the lock on `session` prior
+	  to calling `g_hash_table_foreach`, but `rtp_session_reset` doesn't acquire the
+	  lock before calling `g_hash_table_remove_all`.
+	  Acquiring the lock in `rtp_session_reset` fixes the issue.
+	  [implementing insertable streams support]: https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs/-/merge_requests/1176
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4532>
+
+2023-04-26 15:58:23 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2bufferpool.c:
+	* sys/v4l2/gstv4l2bufferpool.h:
+	* sys/v4l2/gstv4l2videodec.c:
+	  v4l2: pool: Flush events on capture queue
+	  Unfortunately streamoff does not flush the events, and this can cause all
+	  sort of issues. Flush events on capture queue. We also return
+	  GST_V4L2_FLOW_RESOLUTION_CHANGE in case a resolution change was seen.
+	  This allow skipping streamon(capture) on flush, which could lead to a
+	  configuration miss-match, or failure if the buffers aren't of the right
+	  size.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4525>
+
+2023-04-21 13:33:11 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2videodec.c:
+	  v4l2: videodec: Detect flushes while setting up the capture
+	  As we missed the fact we were flushing, we could create and activate
+	  that buffer pool, and wait on it, causing a hang. We detect that we
+	  are flushing by checking the related pad state.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4525>
+
+2023-04-21 13:30:43 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2bufferpool.c:
+	  v4l2: bufferpool: Don't copy buffer when flushing
+	  Threshold handling can race with flushing operation. This can lead to
+	  avoidable buffer copies. Simply check and return the flushing status.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4525>
+
+2023-04-19 14:19:13 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2videodec.c:
+	* sys/v4l2/gstv4l2videodec.h:
+	  v4l2: videodec: Don't forcibly drain on resolution changes
+	  Let the driver detects the change and reconfigure the capture side
+	  transparently from there. This avoid reallocation of the output buffers,
+	  and eliminates the need to stop and restart the capture task. This is
+	  only happening if the driver have support for this, otherwise the old
+	  behaviour is maintained.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4525>
+
+2023-04-18 11:42:06 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2videodec.c:
+	  v4l2: videodec: Remove the spurious srccaps probe
+	  We don't need to probe the srccaps in set_format() anymore, this
+	  handled already in the capture thread while setting up the capture
+	  queue.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4525>
+
+2023-04-17 16:10:34 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2videodec.c:
+	  v4l2: videodec: Improve few logs
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4525>
+
+2023-04-17 16:07:21 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2videodec.c:
+	  v4l2: videodec: Only warn of incomplete drain on success
+	  We may have hit an error, or just flushing in order to stop the thread,
+	  in which case, not having drain everything is expected and not a
+	  driver bug.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4525>
+
+2023-04-17 16:05:35 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2bufferpool.c:
+	  v4l2: bufferpool: Don't assert when orphaning is not needed
+	  This may happen when shutting down and should not cause
+	  any harm. This removes the associated assert when shutting
+	  down the pipeline, notably with CTRL+C.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4525>
+
+2023-04-14 18:54:22 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2videodec.c:
+	* sys/v4l2/gstv4l2videodec.h:
+	  v4l2: videodec: Wait for source change event
+	  Stop doing capture buffer allocation based on guesses
+	  and wait for the source change event when available.
+	  Unlike stateless decoder, the stateful decoder is not aware of
+	  the coded resolution, and this may lead to the wrong result
+	  even when using TRY_FMT.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4525>
+
+2023-04-14 22:22:06 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2bufferpool.c:
+	* sys/v4l2/gstv4l2bufferpool.h:
+	* sys/v4l2/gstv4l2object.c:
+	* sys/v4l2/gstv4l2object.h:
+	  v4l2: object: Move the GstPoll into v4l2object
+	  Moves the GstPoll from the buffer pool into v4l2object. This will be
+	  needed to poll for events before the pool has been created.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4525>
+
+2023-04-14 23:38:34 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2object.c:
+	  v4l2: object: Fix bogus debug objects pointers
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4525>
+
+2023-04-14 09:53:15 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2videodec.c:
+	* sys/v4l2/gstv4l2videodec.h:
+	  v4l2: videodec: Move the capture setup into the processing loop
+	  In previous implementation that job was split between handle_frame and
+	  the processing loop and it wasn't clear if this mechanism was race
+	  free. The capture setup would also be tried for every buffer, which was
+	  not necessary.
+	  This also simplify the handling of SRC_CH event, dropping the unneeded
+	  atomic boolean.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4525>
+
+2023-04-14 09:51:39 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2videodec.c:
+	  v4l2: videodec: Ensure object is inactive on failure
+	  Sprinkle stop() calls in error case to guaranty that the capture object
+	  is inactive on failure. Not doing so could allow some code to be called
+	  in unexpected (and possibly undefined) conditions.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4525>
+
+2023-04-27 16:33:25 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* gst/multifile/gstsplitmuxsink.c:
+	  Revert "splitmuxsink: Avoid assertion when WAITING_GOP_COLLECT on reference context"
+	  This reverts commit f29c19be5821d26a6b7682d0c69ff31d0815e072. If this is
+	  called for the reference context then we would run into an infinite
+	  loop, which is not really better than an assertion.
+	  By fixing up DTS to never be ahead of the PTS in the previous commit
+	  this situation should be impossible to hit now.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4515>
+
+2023-04-27 16:29:53 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* gst/multifile/gstsplitmuxsink.c:
+	  splitmuxsink: Catch invalid DTS to avoid running into problems later
+	  DTS > PTS makes no sense, so we clamp DTS to the PTS. Also if there's a
+	  PTS but no DTS, then assume that PTS=DTS to make sure we're not working
+	  with a much older DTS.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4515>
+
+2023-04-27 13:00:42 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* gst/rtsp/gstrtspsrc.c:
+	  rtspsrc: Fix handling of `*` control path
+	  Regression introduced by 7f9d689572843ff9e0b8a92128034a8fc4a14d96.
+	  Thanks to Tristan Matthews for reporting this.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4503>
+
+2023-04-17 11:36:55 +0200  Guillaume Desmottes <guillaume.desmottes@onestream.live>
+
+	* ext/adaptivedemux2/dash/gstmpdclient.c:
+	  dash: mpdclient: fix divide by 0 if segment has no duration
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4441>
+
+2023-04-17 09:28:43 +0200  Edward Hervey <edward@centricular.com>
+
+	* gst/isomp4/qtdemux.c:
+	  qtdemux: Fix av1C parsing
+	  This is a regression introduced by
+	  https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3882
+	  The av1c codec configuration parsing would always fail due to an off-by-one
+	  error, the content of an atom starting at offset 8 (i.e. the 9th byte) and not
+	  9 (the 10th byte).
+	  Also introduce a break in order to not get stray warnings
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4435>
+
+2023-04-12 12:47:02 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* gst/multifile/gstimagesequencesrc.c:
+	* gst/multifile/gstmultifilesrc.c:
+	  multifile: error out if no filename was set
+	  Fixes #2483
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4429>
+
+2023-04-06 08:55:46 +0200  Matthias Fuchs <matthias1.fuchs@zeiss.com>
+
+	* ext/qt/qtwindow.cc:
+	  qtwindow: unref caps in destructor
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4418>
+
+2023-04-12 17:18:13 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2object.c:
+	* sys/v4l2/gstv4l2object.h:
+	  v4l2: Fix use after free of fmtdesc part 2
+	  Add missing code in merge commit e890e6e8d8bd
+	  ("v4l2: Fix use after free of fmtdesc"). The v4l2object code was
+	  missing.
+	  Related to https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4317
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4426>
+
+2023-04-12 17:18:13 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2videodec.c:
+	  v4l2: Fix use after free of fmtdesc
+	  The decoder needs to force another enumeration of the format. For
+	  this it was clearing the v4l2object insternal list, leaving a fmtdesc
+	  pointer pointing to freed memory. This patch clears the fmtdesc pointer
+	  that has just been free. It also makes sure the probe function does not
+	  use the cached formats list. The probe function will restore the current
+	  fmtdesc pointer based on the currently configured pixelformat.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4426>
+
+2023-03-31 10:32:54 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2bufferpool.c:
+	* sys/v4l2/gstv4l2videodec.c:
+	  v4l2: videodec: Prefer acquired caps over anything downstream
+	  As we don't have anything smart in the fixation process, we may endup with
+	  a format that has a lower bitdepth, even if downstream can handle higher
+	  depth. it is notably the case when negotiating with deinterlace, which places
+	  is non-passthrough caps before its passthrough one. This makes the generic
+	  fixation prefer the formats natively supported by deinterlace element over
+	  the HW 10bit format. As some HW can downscale 10bit to 8bit, this can break
+	  10bit decoding.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4426>
+
+2023-03-31 10:31:07 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2videodec.c:
+	  v4l2: videodec: Remove leading space in comment
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4426>
+
+2023-03-03 18:40:22 +0000  Jan Alexander Steffens (heftig) <heftig@archlinux.org>
+
+	* docs/gst_plugins_cache.json:
+	* gst/multifile/gstimagesequencesrc.c:
+	  imagesequencesrc: Properly set default location
+	  Noticed this because the generic_states test kept segfaulting at random.
+	  GLibC 2.37 can crash when NULL is supplied as a format string.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4425>
+
+2023-04-11 17:54:23 +0200  Guillaume Desmottes <guillaume.desmottes@onestream.live>
+
+	* ext/adaptivedemux2/gstadaptivedemux.c:
+	  adaptivedemux2: fix critical when using an unsupported URI
+	  adaptivedemux2 only supports http(s), trying to use it with, say,
+	  file:// was raising a CRITICAL in libsoup.
+	  Fix #2476
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4421>
+
+2023-04-12 00:31:17 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* docs/gst_plugins_cache.json:
+	* meson.build:
+	  Back to development
+
+=== release 1.22.2 ===
+
+2023-04-11 17:29:28 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* NEWS:
+	* RELEASE:
+	* docs/gst_plugins_cache.json:
+	* gst-plugins-good.doap:
+	* meson.build:
+	  Release 1.22.2
+
+2023-04-04 09:21:47 +0200  Edward Hervey <edward@centricular.com>
+
+	* gst/rtpmanager/rtptwcc.c:
+	* tests/check/elements/rtpsession.c:
+	  twcc: Better handle duplicate packets
+	  The previous code would only check if two packets in a row were duplicates. If
+	  not (i.e. a packet is a duplicate of a packet received slightly before) the code
+	  would generate completely bogus FCI because it assumes there were no duplicates
+	  present in the array.
+	  In order to be efficient, just store all received packets and remove the
+	  duplicates just before the FCI is generated once the array of observations have
+	  been sorted by seqnum.
+	  Fixes TWCC usage with moderate to high packet duplication.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4378>
+
+2022-11-04 22:04:21 +0100  Alexande B <abobrikovich@gmail.com>
+
+	* sys/osxvideo/cocoawindow.m:
+	  osxvideosink: fix broken aspect ration and frame drawing region
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4346>
+
+2023-04-04 19:23:14 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* gst/rtsp/gstrtspsrc.c:
+	  rtspsrc: Skip PTs with caps incompatible to the global caps
+	  Otherwise empty caps are created while all following code assumes that
+	  the caps will have exactly one structure, and then run into assertions.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4343>
+
+2023-03-28 15:29:46 +0800  Shengqi Yu <shengqi.yu@mediatek.com>
+
+	* docs/gst_plugins_cache.json:
+	* sys/v4l2/gstv4l2object.c:
+	  v4l2object: Add support for YVU420M format
+	  This is a multi-planar format with planes non contiguous in memory. It
+	  is intended to be used only in drivers and applications that support the
+	  multi-planar API.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4318>
+
+2023-03-23 16:40:54 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* gst/rtp/gstrtpjpegdepay.c:
+	  rtpjpegdepay: fix logic error when checking if an EOI is present
+	  We wouldn't add the missing EOI marker if the frame ended with
+	  either 0xFF NN or 0xNN D9.
+	  Fixes #2407
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4269>
+
+2023-03-20 16:35:45 +0100  Piotr Brzeziński <piotr@centricular.com>
+
+	* gst/isomp4/qtdemux.c:
+	  qtdemux: Fix seek adjustment with SNAP_AFTER flag
+	  With GST_SEEK_FLAG_SNAP_AFTER present, the previous version would
+	  adjust seek time based on the keyframe farthest away from desired_time.
+	  This was incorrect, because we always want the *earliest* suitable keyframe
+	  to seek to, not the last one.
+	  With this fix, in case of the SNAP_AFTER, we now look for the closest keyframe
+	  that can be found after desired_time. Behaviour for SNAP_BEFORE should remain
+	  unchanged.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4251>
+
+2023-01-31 16:02:03 +0100  Michael Tretter <m.tretter@pengutronix.de>
+
+	* docs/gst_plugins_cache.json:
+	* sys/v4l2/gstv4l2object.c:
+	  v4l2object: mark jpeg as parsed
+	  Assuming that V4L2 CAPTURE devices always use one buffer per JPEG image, we can
+	  always mark JPEGs provided by a V4L2 element as parsed.
+	  The V4L2 elements require that JPEG images sent to V4L2 OUTPUT devices must
+	  always be parsed.
+	  This is necessary to link a V4L2 CAPTURE device with a V4L2 OUTPUT device
+	  without explicitly marking the stream as parsed or adding a jpegparse into the
+	  pipeline.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4247>
+
+2023-03-17 17:13:39 +0200  Sebastian Dröge <sebastian@centricular.com>
+
+	* gst/matroska/matroska-read-common.c:
+	  matroskademux: Make gst_byte_reader_get_data() usage less confusing
+	  This is effectively the same behaviour but retrieving 0 bytes of data is
+	  confusing to read.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4221>
+
+2023-03-17 16:48:51 +0200  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/flac/gstflacenc.c:
+	  flacenc: Fix mapping of GStreamer image tag type to FLAC image tag type
+	  These enums are not compatible so just casting them does not work.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4221>
+
+2023-03-17 16:32:45 +0200  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/adaptivedemux2/gstadaptivedemux-stream.c:
+	* sys/oss/gstossaudio.c:
+	* sys/oss/gstosshelper.c:
+	  plugins: Fix various trivial clang compiler warnings
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4221>
+
+2023-03-10 13:10:16 -0500  Arun Raghavan <arun@asymptotic.io>
+
+	* docs/gst_plugins_cache.json:
+	* gst/matroska/matroska-mux.c:
+	  matroskamux: Set rate/channels in Opus template caps
+	  For some reason these were missed, and if caps didn't have them, we would emit
+	  an invalid Matroska file with a 0 value for Sampling Frequency or channels.
+	  Fixes: https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/2354
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4172>
+
+2023-03-10 12:06:08 -0500  Arun Raghavan <arun@asymptotic.io>
+
+	* gst/rtp/gstrtpopusdepay.c:
+	  rtpopusdepay: Assume 48 kHz if sprop-maxcapturerate is missing
+	  This matches 7587, section 6.1:
+	  >   sprop-maxcapturerate:  a hint about the maximum input sampling rate
+	  >      [...]
+	  >      bandwidths (Table 1).  By default, the sender is assumed to have
+	  >      no limitations, i.e., 48000.
+	  Fixes: https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/2354
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4172>
+
+2023-03-06 19:56:08 +0000  Matt Feury <mattfeury@gmail.com>
+
+	* gst/rtsp/gstrtspsrc.c:
+	  rtspsrc: Consider "451: Parameter Not Understood" when handling broken control urls
+	  similar to https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3854
+	  it seems that some implementations return this when
+	  the server does not implement URL handling correctly
+	  this fixes https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/2334
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4129>
+
+2023-03-04 16:13:04 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* docs/gst_plugins_cache.json:
+	* meson.build:
+	  Back to development
+
 === release 1.22.1 ===
 
 2023-03-04 13:42:32 +0000  Tim-Philipp Müller <tim@centricular.com>
