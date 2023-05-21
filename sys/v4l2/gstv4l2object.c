@@ -525,6 +525,9 @@ gst_v4l2_object_new (GstElement * element,
 
   v4l2object->no_initial_format = FALSE;
 
+  v4l2object->poll = gst_poll_new (TRUE);
+  v4l2object->can_poll_device = TRUE;
+
   /* We now disable libv4l2 by default, but have an env to enable it. */
 #ifdef HAVE_LIBV4L2
   if (g_getenv ("GST_V4L2_USE_LIBV4L2")) {
@@ -550,6 +553,19 @@ gst_v4l2_object_new (GstElement * element,
   return v4l2object;
 }
 
+
+static gboolean
+gst_v4l2_object_clear_format_list (GstV4l2Object * v4l2object)
+{
+  g_slist_foreach (v4l2object->formats, (GFunc) g_free, NULL);
+  g_slist_free (v4l2object->formats);
+  v4l2object->formats = NULL;
+  v4l2object->fmtdesc = NULL;
+
+  return TRUE;
+}
+
+
 void
 gst_v4l2_object_destroy (GstV4l2Object * v4l2object)
 {
@@ -558,6 +574,8 @@ gst_v4l2_object_destroy (GstV4l2Object * v4l2object)
   g_free (v4l2object->videodev);
   g_free (v4l2object->par);
   g_free (v4l2object->channel);
+
+  gst_poll_free (v4l2object->poll);
 
   if (v4l2object->formats) {
     gst_v4l2_object_clear_format_list (v4l2object);
@@ -574,16 +592,6 @@ gst_v4l2_object_destroy (GstV4l2Object * v4l2object)
   g_free (v4l2object);
 }
 
-
-gboolean
-gst_v4l2_object_clear_format_list (GstV4l2Object * v4l2object)
-{
-  g_slist_foreach (v4l2object->formats, (GFunc) g_free, NULL);
-  g_slist_free (v4l2object->formats);
-  v4l2object->formats = NULL;
-
-  return TRUE;
-}
 
 static gint
 gst_v4l2_object_prop_to_cid (guint prop_id)
@@ -897,6 +905,20 @@ gst_v4l2_set_defaults (GstV4l2Object * v4l2object)
   }
 }
 
+static void
+gst_v4l2_object_init_poll (GstV4l2Object * v4l2object)
+{
+  gst_poll_fd_init (&v4l2object->pollfd);
+  v4l2object->pollfd.fd = v4l2object->video_fd;
+  gst_poll_add_fd (v4l2object->poll, &v4l2object->pollfd);
+  if (V4L2_TYPE_IS_OUTPUT (v4l2object->type))
+    gst_poll_fd_ctl_write (v4l2object->poll, &v4l2object->pollfd, TRUE);
+  else
+    gst_poll_fd_ctl_read (v4l2object->poll, &v4l2object->pollfd, TRUE);
+
+  v4l2object->can_poll_device = TRUE;
+}
+
 gboolean
 gst_v4l2_object_open (GstV4l2Object * v4l2object, GstV4l2Error * error)
 {
@@ -905,17 +927,20 @@ gst_v4l2_object_open (GstV4l2Object * v4l2object, GstV4l2Error * error)
   else
     return FALSE;
 
+  gst_v4l2_object_init_poll (v4l2object);
+
   return TRUE;
 }
 
 gboolean
 gst_v4l2_object_open_shared (GstV4l2Object * v4l2object, GstV4l2Object * other)
 {
-  gboolean ret;
+  if (gst_v4l2_dup (v4l2object, other)) {
+    gst_v4l2_object_init_poll (v4l2object);
+    return TRUE;
+  }
 
-  ret = gst_v4l2_dup (v4l2object, other);
-
-  return ret;
+  return FALSE;
 }
 
 gboolean
@@ -1093,6 +1118,7 @@ gst_v4l2_object_format_get_rank (const struct v4l2_fmtdesc *fmt)
       rank = YUV_BASE_RANK + 10;
       break;
     case V4L2_PIX_FMT_YVU420:  /* YV12, 12 bits per pixel */
+    case V4L2_PIX_FMT_YVU420M:
       rank = YUV_BASE_RANK + 6;
       break;
     case V4L2_PIX_FMT_UYVY:    /* UYVY, 16 bits per pixel */
@@ -1375,6 +1401,7 @@ gst_v4l2_object_v4l2fourcc_to_video_format (guint32 fourcc)
       format = GST_VIDEO_FORMAT_YUY2;
       break;
     case V4L2_PIX_FMT_YVU420:
+    case V4L2_PIX_FMT_YVU420M:
       format = GST_VIDEO_FORMAT_YV12;
       break;
     case V4L2_PIX_FMT_UYVY:
@@ -1453,7 +1480,8 @@ gst_v4l2_object_v4l2fourcc_to_bare_struct (guint32 fourcc)
     case V4L2_PIX_FMT_MJPEG:   /* Motion-JPEG */
     case V4L2_PIX_FMT_PJPG:    /* Progressive-JPEG */
     case V4L2_PIX_FMT_JPEG:    /* JFIF JPEG */
-      structure = gst_structure_new_empty ("image/jpeg");
+      structure = gst_structure_new ("image/jpeg",
+          "parsed", G_TYPE_BOOLEAN, TRUE, NULL);
       break;
     case V4L2_PIX_FMT_MPEG1:
       structure = gst_structure_new ("video/mpeg",
@@ -1541,6 +1569,7 @@ gst_v4l2_object_v4l2fourcc_to_bare_struct (guint32 fourcc)
     case V4L2_PIX_FMT_YUV420M:
     case V4L2_PIX_FMT_YUYV:
     case V4L2_PIX_FMT_YVU420:
+    case V4L2_PIX_FMT_YVU420M:
     case V4L2_PIX_FMT_UYVY:
     case V4L2_PIX_FMT_YUV422P:
     case V4L2_PIX_FMT_YVYU:
@@ -1794,6 +1823,7 @@ gst_v4l2_object_get_caps_info (GstV4l2Object * v4l2object, GstCaps * caps,
         break;
       case GST_VIDEO_FORMAT_YV12:
         fourcc = V4L2_PIX_FMT_YVU420;
+        fourcc_nc = V4L2_PIX_FMT_YVU420M;
         break;
       case GST_VIDEO_FORMAT_Y41B:
         fourcc = V4L2_PIX_FMT_YUV411P;
@@ -1979,17 +2009,17 @@ gst_v4l2_object_get_caps_info (GstV4l2Object * v4l2object, GstCaps * caps,
   /* ERRORS */
 invalid_format:
   {
-    GST_DEBUG_OBJECT (v4l2object, "invalid format");
+    GST_DEBUG_OBJECT (v4l2object->dbg_obj, "invalid format");
     return FALSE;
   }
 unhandled_format:
   {
-    GST_DEBUG_OBJECT (v4l2object, "unhandled format");
+    GST_DEBUG_OBJECT (v4l2object->dbg_obj, "unhandled format");
     return FALSE;
   }
 unsupported_format:
   {
-    GST_DEBUG_OBJECT (v4l2object, "unsupported format");
+    GST_DEBUG_OBJECT (v4l2object->dbg_obj, "unsupported format");
     return FALSE;
   }
 }
@@ -2358,7 +2388,8 @@ gst_v4l2_object_add_interlace_mode (GstV4l2Object * v4l2object,
       || gst_value_list_get_size (&interlace_formats) > 0)
     gst_structure_take_value (s, "interlace-mode", &interlace_formats);
   else
-    GST_WARNING_OBJECT (v4l2object, "Failed to determine interlace mode");
+    GST_WARNING_OBJECT (v4l2object->dbg_obj,
+        "Failed to determine interlace mode");
 
   return;
 }
@@ -2842,20 +2873,19 @@ gst_v4l2_object_probe_caps_for_format (GstV4l2Object * v4l2object,
         size.stepwise.min_height);
     GST_DEBUG_OBJECT (v4l2object->dbg_obj, "max width:   %d",
         size.stepwise.max_width);
-    GST_DEBUG_OBJECT (v4l2object->dbg_obj, "min height:  %d",
+    GST_DEBUG_OBJECT (v4l2object->dbg_obj, "max height:  %d",
         size.stepwise.max_height);
     GST_DEBUG_OBJECT (v4l2object->dbg_obj, "step width:  %d",
         size.stepwise.step_width);
     GST_DEBUG_OBJECT (v4l2object->dbg_obj, "step height: %d",
         size.stepwise.step_height);
 
-    w = MAX (size.stepwise.min_width, 1);
-    h = MAX (size.stepwise.min_height, 1);
-    maxw = MIN (size.stepwise.max_width, G_MAXINT);
-    maxh = MIN (size.stepwise.max_height, G_MAXINT);
-
     step_w = MAX (size.stepwise.step_width, 1);
     step_h = MAX (size.stepwise.step_height, 1);
+    w = MAX (size.stepwise.min_width, step_w);
+    h = MAX (size.stepwise.min_height, step_h);
+    maxw = MIN (size.stepwise.max_width, G_MAXINT);
+    maxh = MIN (size.stepwise.max_height, G_MAXINT);
 
     /* FIXME: check for sanity and that min/max are multiples of the steps */
 
@@ -3330,7 +3360,7 @@ gst_v4l2_object_save_format (GstV4l2Object * v4l2object,
     padded_width = stride / pstride;
   } else {
     /* pstride can be 0 for complex formats */
-    GST_WARNING_OBJECT (v4l2object->element,
+    GST_WARNING_OBJECT (v4l2object->dbg_obj,
         "format %s has a pstride of 0, cannot compute padded with",
         gst_video_format_to_string (GST_VIDEO_INFO_FORMAT (info)));
     padded_width = stride;
@@ -3603,9 +3633,9 @@ gst_v4l2_object_set_format_full (GstV4l2Object * v4l2object, GstCaps * caps,
 
   field = get_v4l2_field_for_info (&info);
   if (field != V4L2_FIELD_NONE)
-    GST_DEBUG_OBJECT (v4l2object->element, "interlaced video");
+    GST_DEBUG_OBJECT (v4l2object->dbg_obj, "interlaced video");
   else
-    GST_DEBUG_OBJECT (v4l2object->element, "progressive video");
+    GST_DEBUG_OBJECT (v4l2object->dbg_obj, "progressive video");
 
   /* We first pick the main colorspace from the primaries */
   switch (info.colorimetry.primaries) {
@@ -4589,6 +4619,8 @@ gst_v4l2_object_unlock (GstV4l2Object * v4l2object)
 
   GST_LOG_OBJECT (v4l2object->dbg_obj, "start flushing");
 
+  gst_poll_set_flushing (v4l2object->poll, TRUE);
+
   if (!pool)
     return ret;
 
@@ -4606,6 +4638,8 @@ gst_v4l2_object_unlock_stop (GstV4l2Object * v4l2object)
   GstBufferPool *pool = gst_v4l2_object_get_buffer_pool (v4l2object);
 
   GST_LOG_OBJECT (v4l2object->dbg_obj, "stop flushing");
+
+  gst_poll_set_flushing (v4l2object->poll, FALSE);
 
   if (!pool)
     return ret;
@@ -4627,6 +4661,8 @@ gst_v4l2_object_stop (GstV4l2Object * v4l2object)
     goto done;
   if (!GST_V4L2_IS_ACTIVE (v4l2object))
     goto done;
+
+  gst_poll_set_flushing (v4l2object->poll, TRUE);
 
   pool = gst_v4l2_object_get_buffer_pool (v4l2object);
   if (pool) {
@@ -4659,8 +4695,19 @@ gst_v4l2_object_probe_caps (GstV4l2Object * v4l2object, GstCaps * filter)
   GstCaps *ret;
   GSList *walk;
   GSList *formats;
+  guint32 fourcc = 0;
 
+  if (v4l2object->fmtdesc)
+    fourcc = GST_V4L2_PIXELFORMAT (v4l2object);
+
+  gst_v4l2_object_clear_format_list (v4l2object);
   formats = gst_v4l2_object_get_format_list (v4l2object);
+
+  /* Recover the fmtdesc, it may no longer exist, in which case it will be set
+   * to null */
+  if (fourcc)
+    v4l2object->fmtdesc =
+        gst_v4l2_object_get_format_from_fourcc (v4l2object, fourcc);
 
   ret = gst_caps_new_empty ();
 
@@ -5446,4 +5493,136 @@ gst_v4l2_object_get_buffer_pool (GstV4l2Object * v4l2object)
   GST_OBJECT_UNLOCK (v4l2object->element);
 
   return ret;
+}
+
+/**
+ * gst_v4l2_object_poll:
+ * @v4l2object: a #GstV4l2Object
+ * @timeout: timeout of type #GstClockTime
+ *
+ * Poll the video file descriptor for read when this is a capture, write when
+ * this is an output. It will also watch for errors and source change events.
+ * If a source change event is received, %GST_V4L2_FLOW_RESOLUTION_CHANGE will
+ * be returned. If the poll was interrupted, %GST_FLOW_FLUSHING is returned.
+ * If there was no read or write indicator, %GST_V4L2_FLOW_LAST_BUFFER is
+ * returned. It may also return %GST_FLOW_ERROR if some unexpected error
+ * occured.
+ *
+ * Returns: GST_FLOW_OK if buffers are ready to be queued or dequeued.
+ */
+GstFlowReturn
+gst_v4l2_object_poll (GstV4l2Object * v4l2object, GstClockTime timeout)
+{
+  gint ret;
+
+  if (!v4l2object->can_poll_device) {
+    if (timeout != 0)
+      goto done;
+    else
+      goto no_buffers;
+  }
+
+  GST_LOG_OBJECT (v4l2object->dbg_obj, "polling device");
+
+again:
+  ret = gst_poll_wait (v4l2object->poll, timeout);
+  if (G_UNLIKELY (ret < 0)) {
+    switch (errno) {
+      case EBUSY:
+        goto stopped;
+      case EAGAIN:
+      case EINTR:
+        goto again;
+      case ENXIO:
+        GST_WARNING_OBJECT (v4l2object->dbg_obj,
+            "v4l2 device doesn't support polling. Disabling"
+            " using libv4l2 in this case may cause deadlocks");
+        v4l2object->can_poll_device = FALSE;
+        goto done;
+      default:
+        goto select_error;
+    }
+  }
+
+  if (gst_poll_fd_has_error (v4l2object->poll, &v4l2object->pollfd))
+    goto select_error;
+
+  /* PRI is used to signal that events are available */
+  if (gst_poll_fd_has_pri (v4l2object->poll, &v4l2object->pollfd)) {
+    struct v4l2_event event = { 0, };
+
+    if (!gst_v4l2_dequeue_event (v4l2object, &event))
+      goto dqevent_failed;
+
+    if (event.type != V4L2_EVENT_SOURCE_CHANGE) {
+      GST_INFO_OBJECT (v4l2object->dbg_obj,
+          "Received unhandled event, ignoring.");
+      goto again;
+    }
+
+    if ((event.u.src_change.changes & V4L2_EVENT_SRC_CH_RESOLUTION) == 0) {
+      GST_DEBUG_OBJECT (v4l2object->dbg_obj,
+          "Received non-resolution source-change, ignoring.");
+      goto again;
+    }
+
+    return GST_V4L2_FLOW_RESOLUTION_CHANGE;
+  }
+
+  if (ret == 0)
+    goto no_buffers;
+
+done:
+  return GST_FLOW_OK;
+
+  /* ERRORS */
+stopped:
+  {
+    GST_DEBUG_OBJECT (v4l2object->dbg_obj, "stop called");
+    return GST_FLOW_FLUSHING;
+  }
+select_error:
+  {
+    GST_ELEMENT_ERROR (v4l2object->element, RESOURCE, READ, (NULL),
+        ("poll error %d: %s (%d)", ret, g_strerror (errno), errno));
+    return GST_FLOW_ERROR;
+  }
+no_buffers:
+  {
+    return GST_V4L2_FLOW_LAST_BUFFER;
+  }
+dqevent_failed:
+  {
+    GST_ELEMENT_ERROR (v4l2object->element, RESOURCE, READ, (NULL),
+        ("dqevent error: %s (%d)", g_strerror (errno), errno));
+    return GST_FLOW_ERROR;
+  }
+}
+
+/**
+ * gst_v4l2_object_subscribe_event:
+ * @v4l2object: a #GstV4l2Object
+ * @event: the event ID
+ *
+ * Subscribe to an event, and enable polling for these. Note that only
+ * %V4L2_EVENT_SOURCE_CHANGE is currently supported by the poll helper.
+ *
+ * Returns: %TRUE if the driver supports this event
+ */
+gboolean
+gst_v4l2_object_subscribe_event (GstV4l2Object * v4l2object, guint32 event)
+{
+  guint32 id = 0;
+
+  g_return_val_if_fail (v4l2object != NULL, FALSE);
+  g_return_val_if_fail (GST_V4L2_IS_OPEN (v4l2object), FALSE);
+
+  v4l2object->get_in_out_func (v4l2object, &id);
+
+  if (gst_v4l2_subscribe_event (v4l2object, event, id)) {
+    gst_poll_fd_ctl_pri (v4l2object->poll, &v4l2object->pollfd, TRUE);
+    return TRUE;
+  }
+
+  return FALSE;
 }

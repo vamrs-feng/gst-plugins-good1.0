@@ -2301,6 +2301,13 @@ gst_rtspsrc_collect_payloads (GstRTSPSrc * src, const GstSDPMessage * sdp,
     outcaps = gst_caps_intersect (caps, global_caps);
     gst_caps_unref (caps);
 
+    if (gst_caps_is_empty (outcaps)) {
+      GST_WARNING_OBJECT (src,
+          " skipping pt %d with caps conflicting with the global caps", pt);
+      gst_caps_unref (outcaps);
+      continue;
+    }
+
     /* the first pt will be the default */
     if (stream->ptmap->len == 0)
       stream->default_pt = pt;
@@ -2442,7 +2449,7 @@ gst_rtspsrc_create_stream (GstRTSPSrc * src, GstSDPMessage * sdp, gint idx,
 
       base = get_aggregate_control (src);
       if (g_strcmp0 (control_path, "*") == 0)
-        control_path = g_strdup (base);
+        stream->conninfo.location = g_strdup (base);
       else
         stream->conninfo.location = gst_uri_join_strings (base, control_path);
     }
@@ -7721,6 +7728,7 @@ gst_rtspsrc_setup_streams_start (GstRTSPSrc * src, gboolean async)
       case GST_RTSP_STS_BAD_REQUEST:
       case GST_RTSP_STS_NOT_FOUND:
       case GST_RTSP_STS_METHOD_NOT_VALID_IN_THIS_STATE:
+      case GST_RTSP_STS_PARAMETER_NOT_UNDERSTOOD:
         /* There are various non-compliant servers that don't require control
          * URLs that are not resolved correctly but instead are just appended.
          * See e.g.

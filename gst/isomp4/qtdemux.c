@@ -1125,7 +1125,7 @@ gst_qtdemux_adjust_seek (GstQTDemux * qtdemux, gint64 desired_time,
   gint64 min_byte_offset = -1;
   guint i;
 
-  min_offset = desired_time;
+  min_offset = next ? G_MAXUINT64 : desired_time;
 
   /* for each stream, find the index of the sample in the segment
    * and move back to the previous keyframe. */
@@ -1184,10 +1184,10 @@ gst_qtdemux_adjust_seek (GstQTDemux * qtdemux, gint64 desired_time,
       index++;
 
     if (!empty_segment) {
-      /* find previous keyframe */
+      /* find previous or next keyframe */
       kindex = gst_qtdemux_find_keyframe (qtdemux, str, index, next);
 
-      /* we will settle for one before if none found after */
+      /* if looking for next one, we will settle for one before if none found after */
       if (next && kindex == -1)
         kindex = gst_qtdemux_find_keyframe (qtdemux, str, index, FALSE);
 
@@ -1213,8 +1213,12 @@ gst_qtdemux_adjust_seek (GstQTDemux * qtdemux, gint64 desired_time,
           /* this keyframe is inside the segment, convert back to
            * segment time */
           seg_time = (media_time - seg->media_start) + seg->time;
-          if ((!next && (seg_time < min_offset)) ||
-              (next && (seg_time > min_offset)))
+
+          /* Adjust the offset based on the earliest suitable keyframe found,
+           * based on which GST_SEEK_FLAG_SNAP_* is present (indicated by 'next').
+           * For SNAP_BEFORE we look for the earliest keyframe before desired_time,
+           * and in case of SNAP_AFTER - for the closest one after it. */
+          if (seg_time < min_offset)
             min_offset = seg_time;
         }
       }
@@ -6543,16 +6547,8 @@ gst_qtdemux_loop_state_movie (GstQTDemux * qtdemux)
     stream = QTDEMUX_NTH_STREAM (qtdemux, i);
     position = stream->time_position;
 
-    if (!GST_CLOCK_TIME_IS_VALID (position))
-      continue;
-
-    if (stream->segment_index != -1) {
-      QtDemuxSegment *segment = &stream->segments[stream->segment_index];
-      position += segment->media_start;
-    }
-
     /* position of -1 is EOS */
-    if (position < min_time) {
+    if (position != GST_CLOCK_TIME_NONE && position < min_time) {
       min_time = position;
       target_stream = stream;
     }
@@ -12247,7 +12243,7 @@ qtdemux_parse_trak (GstQTDemux * qtdemux, GNode * trak)
                    * rest: OBUs.
                    */
 
-                  switch (av1_data[9]) {
+                  switch (av1_data[8]) {
                     case 0x81:{
                       guint8 pres_delay_field;
 
@@ -12268,10 +12264,11 @@ qtdemux_parse_trak (GstQTDemux * qtdemux, GNode * trak)
                       gst_caps_set_simple (entry->caps,
                           "codec_data", GST_TYPE_BUFFER, buf, NULL);
                       gst_buffer_unref (buf);
+                      break;
                     }
                     default:
-                      GST_WARNING ("Unknown version %d of av1C box",
-                          av1_data[9]);
+                      GST_WARNING ("Unknown version 0x%02x of av1C box",
+                          av1_data[8]);
                       break;
                   }
 
@@ -13784,8 +13781,6 @@ qtdemux_expose_streams (GstQTDemux * qtdemux)
 
   gst_qtdemux_guess_bitrate (qtdemux);
 
-  gst_element_no_more_pads (GST_ELEMENT_CAST (qtdemux));
-
   /* If we have still old_streams, it's no more used stream */
   for (i = 0; i < qtdemux->old_streams->len; i++) {
     QtDemuxStream *stream = QTDEMUX_NTH_OLD_STREAM (qtdemux, i);
@@ -13802,6 +13797,8 @@ qtdemux_expose_streams (GstQTDemux * qtdemux)
   }
 
   g_ptr_array_set_size (qtdemux->old_streams, 0);
+
+  gst_element_no_more_pads (GST_ELEMENT_CAST (qtdemux));
 
   /* check if we should post a redirect in case there is a single trak
    * and it is a redirecting trak */
