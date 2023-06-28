@@ -1,3 +1,239 @@
+=== release 1.22.4 ===
+
+2023-06-20 17:42:25 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* NEWS:
+	* RELEASE:
+	* docs/gst_plugins_cache.json:
+	* gst-plugins-good.doap:
+	* meson.build:
+	  Release 1.22.4
+
+2023-06-08 19:12:54 +0200  Jonas Kvinge <jonas@jkvinge.net>
+
+	* ext/adaptivedemux2/gstadaptivedemux.c:
+	  adaptivedemux2: Allow data dash+xml manifest for uri
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4853>
+
+2023-06-13 13:20:16 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* gst/audioparsers/gstflacparse.c:
+	  flacparse: Avoid integer overflow in available data check for image tags
+	  If the image length as stored in the file is some bogus integer then
+	  adding it to the current byte readers position can overflow and wrongly
+	  have the check for enough available data succeed.
+	  This then later can cause NULL pointer dereferences or out of bounds
+	  reads/writes when actually reading the image data.
+	  Fixes ZDI-CAN-20775
+	  Fixes https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/2661
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4897>
+
+2023-06-19 15:11:30 +0200  François Laignel <francois@centricular.com>
+
+	* gst/isomp4/qtdemux.c:
+	* gst/isomp4/qtdemux_dump.c:
+	* gst/isomp4/qtdemux_dump.h:
+	* gst/isomp4/qtdemux_types.c:
+	  qtdemux: parse Opus and dOps as qtdemux nodes and add size checks
+	  This allows checking the nodes conformity and dumping parsed values.
+	  Note: Audio Sample Entry version parsing and offset handling is handled as part
+	  of `FOURCC_soun` common processing and in `qtdemux_parse_node`.
+	  Also, only read `stream_count` and `coupled_count` when
+	  `channel_mapping_family` != 0. See:
+	  https://opus-codec.org/docs/opus_in_isobmff.html#4.3.2
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4891>
+
+2023-06-16 10:29:28 +0200  François Laignel <francois@centricular.com>
+
+	* gst/isomp4/qtdemux.c:
+	  qtdemux: fix byte order for opus extension and version field type
+	  The "Encapsulation of Opus in ISO Base Media File Format" [1] specifications,
+	  § 4.3.2 Opus Specific Box, indicates that data must be stored as big-endian.
+	  [1] https://opus-codec.org/docs/opus_in_isobmff.html#4.3.2
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4891>
+
+2023-06-16 10:02:16 +0200  François Laignel <francois@centricular.com>
+
+	* gst/isomp4/atoms.c:
+	  qtmux: fix byte order for opus extension
+	  The "Encapsulation of Opus in ISO Base Media File Format" [1] specifications,
+	  § 4.3.2 Opus Specific Box, indicates that data must be stored as big-endian.
+	  In `build_opus_extension`, `gst_byte_writer_put*_le ()` variants were used,
+	  causing audio streams conversion to Opus in mp4 to offset samples due to the
+	  PreSkip field incorrect value (29ms early in our test cases).
+	  [1] https://opus-codec.org/docs/opus_in_isobmff.html#4.3.2
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4891>
+
+2023-05-30 15:10:11 +0200  Jan Alexander Steffens (heftig) <jan.steffens@ltnglobal.com>
+
+	* gst/isomp4/gstqtmux.c:
+	* gst/isomp4/qtdemux.c:
+	  isomp4: Fix (E)AC-3 channel count handling
+	  The muxer used a fixed value of 2 channels because the TR 102 366 spec
+	  says they're to be ignored. However, the demuxer still trusted them,
+	  resulting in bad caps.
+	  Make the muxer fill in the correct channel count anyway (FFmpeg already
+	  does) and make the demuxer ignore the value.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4773>
+
+2023-04-20 17:31:32 -0400  Daniel Morin <daniel.morin@collabora.com>
+
+	* sys/v4l2/gstv4l2bufferpool.c:
+	* sys/v4l2/gstv4l2object.c:
+	* sys/v4l2/gstv4l2object.h:
+	  v4l2src: fix support for bayer format
+	  - Define a new function that identify if the v4l2object is raw based
+	  on pixel format
+	  - Only consider setting delta flag on buffer if the video is not raw.
+	  Sponsored by Living Optics Ltd.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4867>
+
+2023-06-12 19:24:15 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* tests/check/elements/rtpbin_buffer_list.c:
+	  tests: rtpbin_buffer_list: fix possible unaligned read on 32-bit ARM
+	  Fixes #2666
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4855>
+
+2023-05-30 17:52:34 +0900  ekwange <ekwange@gmail.com>
+
+	* sys/v4l2/v4l2_calls.c:
+	  v4l2: Change to query only up to V4L2_CID_PRIVATE_BASE+V4L2_CID_MAX_CTRLS
+	  Fix to prevent infinite querying.
+	  There are devices that exceed V4L2_CID_PRIVATE_BASE+V4L2_CID_MAX_CTRLS
+	  but do not return EINVAL.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4851>
+
+2023-06-05 07:29:57 +0200  Jochen Henneberg <jh@henneberg-systemdesign.com>
+
+	* gst/rtsp/gstrtspsrc.c:
+	  rtspsrc: Cleanup code for next pending command
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4799>
+
+2023-06-05 06:50:55 +0200  Jochen Henneberg <jh@henneberg-systemdesign.com>
+
+	* gst/rtsp/gstrtspsrc.c:
+	  rtspsrc: Do not try send dropped get/set parameter
+	  If the set_get_param_q has been emptied we have to reset the cached
+	  pending command to CMD_LOOP as we will not have the request parameters
+	  anymore.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4799>
+
+2023-06-06 09:24:37 +0800  Hou Qi <qi.hou@nxp.com>
+
+	* sys/v4l2/gstv4l2videodec.c:
+	  v4l2videodec: treat MPEG 1 format as MPEG 2
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4787>
+
+2023-05-18 14:23:49 +0530  Nirbheek Chauhan <nirbheek@centricular.com>
+
+	* ext/qt6/gstqt6glutility.cc:
+	* ext/qt6/meson.build:
+	  meson: Support building qml6glsink on win32
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4762>
+
+2023-05-03 21:05:54 +0530  Nirbheek Chauhan <nirbheek@centricular.com>
+
+	* ext/qt/meson.build:
+	* ext/qt6/meson.build:
+	* meson_options.txt:
+	  meson: Add more qt options and eliminate all automagic
+	  The qt5 and qt6 plugins will now correctly error out if you enable the
+	  option, and you can also now explicitly ensure that wayland, x11,
+	  eglfs support is actually functional by enabling the options. It was
+	  too easy to build non-functional support for these.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4776>
+
+2023-01-11 01:11:06 +0530  Nirbheek Chauhan <nirbheek@centricular.com>
+
+	* ext/qt/meson.build:
+	  meson: Add build_rpath for qt5 plugin on macOS
+	  Without this, the plugin cannot be loaded in a devenv because the
+	  RPATH is not added to the plugin dylib. This RPATH will be stripped on
+	  install, which is what we want.
+	  When deploying apps, people are supposed to use `macdeployqt` to
+	  create an AppBundle that bundles Qt for you and sets the RPATHs
+	  correctly to point to that bundled Qt.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4776>
+
+2023-06-01 16:21:47 +0200  Piotr Brzeziński <piotr@centricular.com>
+
+	* ext/libpng/gstpngdec.c:
+	  pngdec: Fix 16bit RGB images display
+	  Due to the alpha value being inserted with _BEFORE, we were ending up
+	  with ARGB instead of RGBA, thus displaying completely wrong colours.
+	  According to libpng's manual, "to add an opaque alpha channel, use filler=0xff
+	  or 0xffff and PNG_FILLER_AFTER which will generate RGBA pixels".
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4759>
+
+2023-05-29 17:01:01 +1000  Matthew Waters <matthew@centricular.com>
+
+	* ext/qt/qtglrenderer.cc:
+	  qt/glrenderer: don't attempt to use QWindow from non-Qt main thread
+	  Use QObject::deleteLater() to schedule deletion in the main thread.
+	  Remove the moveToThread of the QWindow.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4744>
+
+2023-05-24 16:17:46 +0200  Michael Olbrich <m.olbrich@pengutronix.de>
+
+	* gst/flv/gstflvmux.c:
+	  flvmux: use the correct timestamp to calculate wait times
+	  Since c0bf793c05cf793aa18a8548cda702625e388115 ("flvmux: Set PTS based on
+	  running time") the timestamp of the output buffer is already in running
+	  time. So using that for 'srcpad->segment.position' does not work correctly
+	  because gst_aggregator_simple_get_next_time() will convert it again with
+	  gst_segment_to_running_time().
+	  This means that the timestamp returned by
+	  gst_aggregator_simple_get_next_time() may be incorrect. For example, if
+	  flvmux is added to a already runinng pipeline then the timestamp is too
+	  small and gst_aggregator_wait_and_check() returns immediately. As a result,
+	  buffers may be muxed in the wrong order.
+	  To fix this, use the PTS of the incoming buffer instead of the outgoing
+	  buffer. Also add the duration as get_next_time() is supposed to return the
+	  timestamp of the next buffer, not the current one.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4734>
+
+2020-08-31 16:38:48 +0200  Michael Olbrich <m.olbrich@pengutronix.de>
+
+	* ext/jpeg/gstjpegdec.c:
+	  jpegdec: be stricter when detecting interlaced video
+	  There are broken(?) mjpeg videos that are incorrectly detected as
+	  interlaced. This happens because 'info.height > height' (e.g. 1088 > 1080).
+	  In the interlaced case info.height is approximately 'height * 2' but not
+	  exactly because height is a multiple of DCTSIZE. Make the check more
+	  restrictive but take the rounding effect into account.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4717>
+
+2020-08-31 16:12:33 +0200  Michael Olbrich <m.olbrich@pengutronix.de>
+
+	* ext/jpeg/gstjpegdec.c:
+	  jpegdec: decode the correct number of lines for interlaced frames
+	  For interlaced jpeg, gst_jpeg_dec_decode_direct() is called twice, once for each
+	  field. In this case, stride[n] is plane_stride[n] * 2 to ensure that only every
+	  other line is written. So the loop must stop at height / num_fields.
+	  If the frame is really interlaced then continuing beyound this, is not harmful,
+	  because jpeg_read_raw_data() will do nothing and return 0, so am info message is
+	  printed.
+	  However, if the frame is not actually interlaced, just misdetected as interlaced
+	  then there is still data available from the second half of the frame. Now
+	  line[0][j] is set to the scratch buffer. If the scratch buffer is not allocated
+	  (because the height is a multiple of v_samp[0] * DCTSIZE) then the result is a
+	  segfault due to a null-pointer dereference.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4717>
+
+2023-05-05 15:12:46 +0800  YURI FEDOSEEV <yuri.fedoseev@helixleisure.com>
+
+	* sys/v4l2/gstv4l2videoenc.c:
+	  v4l2videoenc: support force keyframe event in v4l2 encoder
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4702>
+
+2023-05-19 12:36:19 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* docs/gst_plugins_cache.json:
+	* meson.build:
+	  Back to development
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4679>
+
 === release 1.22.3 ===
 
 2023-05-19 09:23:19 +0100  Tim-Philipp Müller <tim@centricular.com>
