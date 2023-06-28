@@ -1,12 +1,15 @@
-gst-plugins-good1.0 (1.22.4-1) UNRELEASED; urgency=high
+gst-plugins-good1.0 (1.22.4-1) unstable; urgency=high
 
+  * Team upload
   * SECURITY UPDATE: New upstream release
     - Integer overflow leading to heap overwrite in FLAC image tag handling
       (GStreamer-SA-2023-0001, ZDI-CAN-20775)
     - Heap overwrite in PGS subtitle overlay decoder
       (GStreamer-SA-2023-0003, ZDI-CAN-20994)
+  * debian/control: Update qt6 Build-Depends
+  * debian/control: Update libshout-dev Build-Depends
 
- -- Jeremy Bícha <jbicha@ubuntu.com>  Wed, 28 Jun 2023 15:41:52 -0400
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Wed, 28 Jun 2023 15:58:32 -0400
 
 gst-plugins-good1.0 (1.22.3-2) unstable; urgency=medium
 
