@@ -1,3 +1,262 @@
+=== release 1.22.5 ===
+
+2023-07-20 15:22:48 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* NEWS:
+	* RELEASE:
+	* docs/gst_plugins_cache.json:
+	* gst-plugins-good.doap:
+	* meson.build:
+	  Release 1.22.5
+
+2023-02-15 17:32:39 +0100  Edward Hervey <edward@centricular.com>
+
+	* ext/adaptivedemux2/hls/gsthlsdemux.c:
+	  hlsdemux2: Don't set a referer when updating playlists
+	  In the same way we don't for regular playlists in the base class.
+	  If there is a referer specified by the app/user, the downloadhelper will set it
+	  accordingly.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5057>
+
+2023-02-15 18:06:36 +0100  Edward Hervey <edward@centricular.com>
+
+	* ext/adaptivedemux2/gstadaptivedemux-stream.c:
+	  adaptivedemux2: Don't blindly set the main manifest URI as referer
+	  There's no guarantee it will *actually* be the URI which refered to what we are
+	  downloading. It could be a stream URI or anything else.
+	  Instead of putting something wrong, put no (specific) referer as a better choice
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5057>
+
+2023-07-11 17:00:57 +0200  Bastien Nocera <hadess@hadess.net>
+
+	* ext/gtk/gtkgstbasewidget.c:
+	  gtk: Fix critical caused by pointer movement when stream is getting ready
+	  This check fixes a critical warning that can happen when a pointer motion
+	  happens and the video doesn't have its width/height information available.
+	  GStreamer-Video-CRITICAL **: gst_video_center_rect: assertion 'src->h != 0' failed
+	  #0  g_logv (log_domain=0x7ffff705e176 "GStreamer-Video", log_level=G_LOG_LEVEL_CRITICAL, format=<optimized out>, args=<optimized out>) at ../../../../Projects/jhbuild/glib/glib/gmessages.c:1422
+	  #1  0x00007ffff7e1a81d in g_log (log_domain=<optimized out>, log_level=log_level@entry=G_LOG_LEVEL_CRITICAL, format=format@entry=0x7ffff7e77a9d "%s: assertion '%s' failed") at ../../../../Projects/jhbuild/glib/glib/gmessages.c:1460
+	  #2  0x00007ffff7e1b749 in g_return_if_fail_warning (log_domain=<optimized out>, pretty_function=<optimized out>, expression=<optimized out>) at ../../../../Projects/jhbuild/glib/glib/gmessages.c:2930
+	  #3  0x00007ffff701d90b in gst_video_sink_center_rect (src=..., dst=..., result=result@entry=0x7fffffffc6d0, scaling=scaling@entry=1) at ../../../../Projects/jhbuild/gstreamer/subprojects/gst-plugins-base/gst-libs/gst/video/gstvideosink.c:105
+	  #4  0x00007fffe5652dbb in _fit_stream_to_allocated_size (result=0x7fffffffc6d0, allocation=0x7fffffffc6c0, base_widget=0x9396f0) at ../../../../Projects/jhbuild/gstreamer/subprojects/gst-plugins-good/ext/gtk/gtkgstbasewidget.c:326
+	  #5  gtk_gst_base_widget_display_size_to_stream_size (base_widget=base_widget@entry=0x9396f0, x=1207.7109375, y=811.84765625, stream_x=stream_x@entry=0x7fffffffc720, stream_y=stream_y@entry=0x7fffffffc728) at ../../../../Projects/jhbuild/gstreamer/subprojects/gst-plugins-good/ext/gtk/gtkgstbasewidget.c:344
+	  #6  0x00007fffe5651a4b in gst_gtk_base_sink_navigation_send_event (navigation=0x5ff990, event=0x178a730) at ../../../../Projects/jhbuild/gstreamer/subprojects/gst-plugins-good/ext/gtk/gstgtkbasesink.c:340
+	  #7  0x00007fffe5652432 in gtk_gst_base_widget_motion_event (widget=<optimized out>, event=event@entry=0x1f14b60) at ../../../../Projects/jhbuild/gstreamer/subprojects/gst-plugins-good/ext/gtk/gtkgstbasewidget.c:404
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5051>
+
+2023-07-13 16:27:05 +0200  Michael Tretter <m.tretter@pengutronix.de>
+
+	* sys/v4l2/gstv4l2videoenc.c:
+	  v4l2videoenc: remove empty sink_query
+	  The sink_query() function simply calls the sink_query() function of the parent
+	  videoencoder class. Remove the override to simply directly call the parent's
+	  function.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5036>
+
+2023-07-13 16:16:44 +0200  Michael Tretter <m.tretter@pengutronix.de>
+
+	* sys/v4l2/gstv4l2videoenc.c:
+	  v4l2videoenc: replace custom QUERY_CAPS handling with getcaps callback
+	  The videoencoder base class uses getcaps() to ask a subclass for the caps in its
+	  sink_query_default() implementation.
+	  Replace the custom handling of the QUERY_CAPS in the v4l2videoenc with an
+	  implementation of getcaps() that returns the caps that are supported by the
+	  v4l2videoenc to return these caps in the query.
+	  This getcaps() implementation also calls the provided proxy_getcaps(), which
+	  sends a caps query to downstream. This fixes the v4l2videoenc element to respect
+	  limits of downstream elements in a sink query.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5036>
+
+2023-07-11 21:41:46 +0200  Carlos Rafael Giani <crg7475@mailbox.org>
+
+	* meson.build:
+	  gl: Take into account viv-fb vs. viv_fb naming in meson scripts
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4959>
+
+2023-05-16 21:24:44 +1000  Matthew Waters <matthew@centricular.com>
+
+	* ext/qt/gstqtglutility.cc:
+	* ext/qt/meson.build:
+	* meson.build:
+	  gl: provide a pkg-config/gir file for the viv-fb backend
+	  Required to be able to generate coherent bindings for window system
+	  specific APIs due to limitations in gobject-introspection.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4959>
+
+2023-07-10 22:45:49 +0900  Seungha Yang <seungha@centricular.com>
+
+	* ext/qt6/qt6glitem.cc:
+	  qt6: Set sampler filtering method
+	  QQuickItem::smooth property doesn't seem to be propagated to
+	  newly created QSGSimpleTextureNode automatically.
+	  Fixes: https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/2793
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5016>
+
+2023-07-09 17:44:03 +0200  David Craven <david@craven.ch>
+
+	* gst/matroska/matroska-read-common.c:
+	  matroska: demux: Strip signal byte from encrypted blocks
+	  Removes the signal byte when the frame is unencrypted to
+	  be consistent with when the frame is encrypted.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5014>
+
+2023-06-26 17:10:33 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2videodec.c:
+	  v4l2: videodec: Don't wait for src_ch if active
+	  If the capture pool is already active, like when handling gaps at the
+	  start of a stream, do not setup the decoder to wait for src_ch event.
+	  Otherwise the decoder will endup waiting for that at the wrong moment
+	  and exit the decoding thread unexpectedly.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4996>
+
+2023-06-26 17:08:57 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2videodec.c:
+	  v4l2: videodec: Move pool setup inside negotiate()
+	  Move all the pool configuration inside the negotiate() virtual function.
+	  This allow settting up a pool with default format whenever the base
+	  class wants to start without input data, like gaps.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4996>
+
+2023-07-06 17:44:48 +0800  Hou Qi <qi.hou@nxp.com>
+
+	* sys/v4l2/gstv4l2videodec.c:
+	  v4l2videodec: correctly register v4l2mpeg2dec
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4992>
+
+2023-07-07 12:33:37 +0200  Guillaume Desmottes <guillaume.desmottes@onestream.live>
+
+	* gst/videofilter/gstvideoflip.c:
+	  videoflip: fix critical when tag list is not writable
+	  Fix this pipeline where the tag list is not writable:
+	  gst-launch-1.0 videotestsrc ! taginject tags="image-orientation=rotate-90" ! videoflip video-direction=auto \
+	  ! autovideosink
+	  GStreamer-CRITICAL **: 12:34:36.310: gst_tag_list_add: assertion 'gst_tag_list_is_writable (list)' failed
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4990>
+
+2023-07-06 14:27:42 +0200  Michael Olbrich <m.olbrich@pengutronix.de>
+
+	* sys/v4l2/gstv4l2src.c:
+	  v4l2src: handle resolution change when buffers are copied
+	  When buffers are copied then GST_V4L2_FLOW_RESOLUTION_CHANGE is returned by
+	  gst_v4l2_buffer_pool_process() so do renegotiation here as well.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4985>
+
+2023-07-04 23:11:53 +0900  Seungha Yang <seungha@centricular.com>
+
+	* gst/rtsp/gstrtspsrc.c:
+	  rtspsrc: Fix crash when is-live=false
+	  The pad's parent (i.e., rtspsrc) can be nullptr since we add pads
+	  later.
+	  Co-authored-by: Jan Schmidt <jan@centricular.com>
+	  Fixes: https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/2751
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4971>
+
+2023-07-04 10:57:01 +0200  Edward Hervey <edward@centricular.com>
+
+	* ext/adaptivedemux2/hls/gsthlsdemux-util.c:
+	  hlsdemux2: Ensure processed webvtt ends with empty new line
+	  Parsers downstream will use empty new lines to detect where an entry
+	  ends. Failure to have a newline would cause the entry to be either
+	  discarded or (wrongly) concatenated with the next entry
+	  Fixes https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/2752
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4970>
+
+2023-06-21 17:05:47 +0200  Edward Hervey <edward@centricular.com>
+
+	* gst/matroska/matroska-demux.c:
+	  matroska-demux: Properly handle early time-based segments
+	  Refusing an incoming segment in < GST_MATROSKA_READ_STATE_DATA should only be
+	  done if the incoming segment is not in GST_FORMAT_TIME.
+	  In GST_FORMAT_TIME, we are just storing the values and returning, so we can
+	  invert the order of the checks.
+	  Fixes proper segment propagation in matroska/webm DASH use-cases
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4922>
+
+2023-02-10 15:26:20 +0100  Edward Hervey <edward@centricular.com>
+
+	* ext/adaptivedemux2/gstadaptivedemux.c:
+	  adaptivedemux2: Handle early SEEKING query
+	  No pads are present yet, but we can still answer the query
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4922>
+
+2023-02-09 17:22:34 +0100  Edward Hervey <edward@centricular.com>
+
+	* ext/adaptivedemux2/gstadaptivedemux.c:
+	  adaptivedemux2: Fix non-accurate seeking
+	  If no accurate positioning was required, default to snap to the previous segment
+	  for improved responsiveness
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4922>
+
+2023-02-09 14:54:27 +0100  Edward Hervey <edward@centricular.com>
+
+	* ext/adaptivedemux2/gstadaptivedemux.c:
+	  adaptivedemux2: Handle return in seek handling
+	  Various code path were repeating the same logic, and risk forgetting a lock
+	  release.
+	  Unify all of them
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4922>
+
+2023-02-09 14:45:01 +0100  Edward Hervey <edward@centricular.com>
+
+	* ext/adaptivedemux2/gstadaptivedemux.c:
+	  adaptivedemux2: Move API lock usage
+	  It is not needed so early
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4922>
+
+2023-02-08 17:24:18 +0100  Edward Hervey <edward@centricular.com>
+
+	* ext/adaptivedemux2/gstadaptivedemux-private.h:
+	* ext/adaptivedemux2/gstadaptivedemux-stream.c:
+	* ext/adaptivedemux2/gstadaptivedemux.c:
+	  adaptivedemux2: Handle early key-unit seek
+	  Is a seek is done on stream-collection post, there are no selected streams
+	  yet. Therefore none would be chosen to adjust the key-unit seek.
+	  If no streams are selected, fallback to a default stream (i.e. one which has
+	  track(s) with GST_STREAM_FLAG_SELECT).
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4922>
+
+2023-02-08 12:02:45 +0100  Edward Hervey <edward@centricular.com>
+
+	* ext/adaptivedemux2/gstadaptivedemux-track.c:
+	  adaptivedemux2: Fix early seeking
+	  When seeking is handled by the collection posting thread, there is a possibility
+	  that some leftover data will be pushed by the stream thread.
+	  Properly detect and reject those early segments (and buffers) by comparing it to
+	  the main segment seqnum
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4922>
+
+2023-06-06 11:34:03 +0200  Guillaume Desmottes <guillaume.desmottes@onestream.live>
+
+	* gst/videofilter/gstvideoflip.c:
+	  videoflip: update orientation tag in auto mode
+	  The frames are flipped according to the tag orientation so it's no longer accurate.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4796>
+
+2023-06-20 14:56:44 +0200  François Laignel <francois@centricular.com>
+
+	* gst/isomp4/qtdemux.c:
+	  qtdemux: opus: set entry as sampled
+	  ... otherwise streams with constant size samples defined with a single
+	  `sample_size` for all samples in the `stsz` box fall in the category
+	  `chunks_are_samples` in `qtdemux_stbl_init`, overriding the actual
+	  sample count.
+	  `FOURCC_soun` would set this automatically for `compression_id == 0xfffe`,
+	  however `compression_id` is read from the Audio Sample Entry box at an offset
+	  marked as "pre-defined" in some version of the spec and set to 0 both by
+	  GStreamer and FFmpeg for opus streams.
+	  Considering the stream `sampled` flag is set explicitely by other fourcc
+	  variants, doing so for opus seems consistent.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4908>
+
+2023-06-20 19:10:38 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* docs/gst_plugins_cache.json:
+	* meson.build:
+	  Back to development
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4907>
+
 === release 1.22.4 ===
 
 2023-06-20 17:42:25 +0100  Tim-Philipp Müller <tim@centricular.com>
