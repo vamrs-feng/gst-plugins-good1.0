@@ -1,9 +1,10 @@
-gst-plugins-good1.0 (1.22.5-1) UNRELEASED; urgency=medium
+gst-plugins-good1.0 (1.22.5-1) unstable; urgency=medium
 
   * Team upload
   * New upstream release
+  * Cherry-pick patch to fix Qt build
 
- -- Jeremy Bícha <jbicha@ubuntu.com>  Tue, 15 Aug 2023 11:23:56 -0400
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Wed, 16 Aug 2023 08:02:48 -0400
 
 gst-plugins-good1.0 (1.22.4-1) unstable; urgency=high
 
