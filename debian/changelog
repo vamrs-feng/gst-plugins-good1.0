@@ -1,9 +1,11 @@
-gst-plugins-good1.0 (1.22.6-1) UNRELEASED; urgency=medium
+gst-plugins-good1.0 (1.22.6-1) unstable; urgency=medium
 
   * Team upload
   * New upstream bugfix release
+  * Drop Qt patch: applied in new release
+  * Build-Depend on qttools5-dev
 
- -- Jeremy Bícha <jbicha@ubuntu.com>  Mon, 25 Sep 2023 14:52:24 -0400
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Mon, 25 Sep 2023 15:04:32 -0400
 
 gst-plugins-good1.0 (1.22.5-1) unstable; urgency=medium
 
