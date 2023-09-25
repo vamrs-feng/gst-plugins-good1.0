@@ -1,3 +1,193 @@
+=== release 1.22.6 ===
+
+2023-09-20 18:10:57 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* NEWS:
+	* RELEASE:
+	* docs/gst_plugins_cache.json:
+	* gst-plugins-good.doap:
+	* meson.build:
+	  Release 1.22.6
+
+2023-09-19 09:14:31 +0200  Olivier Blin <olivier.blin@softathome.com>
+
+	* ext/pulse/pulsedeviceprovider.c:
+	  pulsedeviceprovider: fix incorrect usage of GST_ELEMENT_ERROR
+	  The provider is not a GStreamer element.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5354>
+
+2023-09-05 16:56:44 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2object.c:
+	  v4l2: object: Handle video helper return value
+	  gst_video_info_set_interlaced_format() can return an error if the
+	  width/height causes integer overflow. Handle this case, so that we can
+	  fail cleanly. This has been experienced while testing an in-progress
+	  driver.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5319>
+
+2023-09-05 16:51:24 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2bufferpool.c:
+	  v4l2: bufferpool: Avoid warnings on empty last buffer
+	  Some drivers will push an buffer flagged LAST but empty. In decoder
+	  case, this results in an "producing too many buffer" warning, even
+	  though the result is entirely correct. Detect this case in order to
+	  signal EOS earlier and avoid this warning.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5319>
+
+2023-09-05 16:15:19 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2bufferpool.c:
+	  v4l2: bufferpool: Do not resize compressed buffer
+	  Avoid resizing compressed buffer to their maximum size. This fixes a
+	  regression that caused valid but very large streams to be generated.
+	  Fixes #2953
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5319>
+
+2023-09-07 17:23:37 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* gst/rtpmanager/gstrtpjitterbuffer.c:
+	  rtpjitterbuffer: Avoid integer overflow in max saveable packets calculation with negative offset
+	  The timestamp offset can be negative, and it can be a bigger negative
+	  number than the latency introduced by the rtpjitterbuffer so the overall
+	  timeout offset can be negative.
+	  Using the negative offset for calculating how many packets can still
+	  arrive in time when encountering a lost packet in an equidistant stream
+	  would then overflow and instead of considering fewer packets lost a lot
+	  more packets are considered lost.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5318>
+
+2023-08-22 09:57:14 +0800  Ming Qian <ming.qian@nxp.com>
+
+	* sys/v4l2/gstv4l2object.c:
+	  v4l2object: clear format lists if source change event is received
+	  If decoder notify a source change event when the capture format is
+	  changed, not the resolution changed.
+	  then gst_v4l2_object_acquire_format will retuen false due to
+	  unsupported format.
+	  we need to clear the format lists in the source change flow,
+	  and reenumerate format list
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5223>
+
+2023-07-25 15:14:11 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2allocator.c:
+	  v4l2: allocator: Don't close foreign dmabuf
+	  Imported dmabuf are not being duped, so they should never be closed. Instead,
+	  we ensure their live time by having strong reference on their original
+	  buffer. This should fix potential flickering due to dmabuf being closed
+	  too early.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5217>
+
+2023-07-20 19:13:36 +0200  Jan Alexander Steffens (heftig) <heftig@archlinux.org>
+
+	* ext/qt/meson.build:
+	  qt: Unbreak build with qt-egl enabled but viv_fb missing
+	  Avoids an error message when the feature is explicitly enabled:
+	  ERROR: Feature qt-egl cannot be enabled: gstreamer-gl-viv_fb-1.0 is required
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5200>
+
+2023-08-07 14:18:21 +0800  Wang Chuan <ouchuanm@outlook.com>
+
+	* ext/adaptivedemux2/gstadaptivedemux.c:
+	  gstadaptivedemux: fix memory leak
+	  GstQuery leaks when using invalid url
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5156>
+
+2023-08-04 15:11:05 +0530  Nirbheek Chauhan <nirbheek@centricular.com>
+
+	* ext/qt/meson.build:
+	* ext/qt6/meson.build:
+	  meson: Fix searching of qt5/qt6 tools with qmake
+	  If the pkg-config files are broken, we want to ensure that qmake is
+	  used. This can easily happen on macOS with the official Qt binaries.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5149>
+
+2023-07-12 12:37:34 +0200  Alicia Boya García <aboya@igalia.com>
+
+	* gst/isomp4/qtdemux.c:
+	  qtdemux: Fix premature EOS when some files are played in push mode
+	  Fixes https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/2771
+	  This EOS branch exists so that if a seek with a stop is made, qtdemux
+	  stops accepting bytes from the sink after the entire requested playback
+	  range is demuxed, as otherwise we could keep download content that is
+	  not being used.
+	  This patch fixes two flaws that were present in that EOS check:
+	  1) A comparison was made between track time and movie time without conversion.
+	  This made the check trigger early in files with edit lists. This patch fixes
+	  this by converting the track PTS to movie PTS (stream time) for the check.
+	  2) To avoid sending a EOS prematurely when the segment stop is within a GOP and
+	  B-frames are present, the check for EOS should only be done for keyframes. I
+	  gather this was already the intention with the existing code, but because it
+	  used `stream->on_keyframe` instead of the local variable `keyframe` the old
+	  code was checking if the *previous* frame was a keyframe.
+	  It's interesting to note that these two flaws in the old code mask each other
+	  in most cases: the track PTS will have reached the movie end PTS, but EOS would
+	  only be sent if the previous frame was a keyframe. A simple case where they
+	  wouldn't mask each other, reproducing the bug, is a sequence of 3 frame GOPs
+	  with structure I-B-P.
+	  The following validateflow tests have been added to future-proof the
+	  fix:
+	  * validate.test.mp4.qtdemux_ibpibp_non_frag_pull.default
+	  * validate.test.mp4.qtdemux_ibpibp_non_frag_push.default
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5114>
+
+2023-06-22 10:10:43 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2bufferpool.c:
+	* sys/v4l2/gstv4l2object.c:
+	* sys/v4l2/gstv4l2object.h:
+	  v4l2: Fix support for left and top padding
+	  In the current implementation, we support for most pixel format left
+	  and top padding by changing the offset in the video meta. Though, to
+	  align driver bytesused to the offset, we recalculate the offset, which
+	  removed the modification we did before.
+	  Instead, save the plane size, and truncate the driver reported bytesused
+	  to the expected size, which ensures that the offsets still match. This
+	  should also fix issues were the buffer size ended up bigger then the
+	  pool size due to driver introduced padding.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5132>
+
+2023-07-25 15:15:58 +0200  Guillaume Desmottes <guillaume.desmottes@onestream.live>
+
+	* gst/videofilter/gstvideoflip.c:
+	  videoflip: fix concurrent access when modifying the tag list
+	  We were checking if the tag list is writable, but it may actually be
+	  shared through the same event (tee upstream or multiple consumers).
+	  Fix a bug where multiple branches have a videoflip element checking the
+	  taglist. The first one was changing the orientation back to rotate-0
+	  which was resetting the other instances.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5099>
+
+2023-07-21 12:48:08 +0200  Xabier Rodriguez Calvar <calvaris@igalia.com>
+
+	* gst/isomp4/qtdemux.c:
+	  qtdemux: attach cbcs crypt info at the right moment
+	  Before it was always added but that can cause issues when the stream begins
+	  unencrypted.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5096>
+
+2023-07-14 08:28:10 +0530  Nirbheek Chauhan <nirbheek@centricular.com>
+
+	* ext/soup/meson.build:
+	* meson_options.txt:
+	  meson: Ensure that soup plugin is built on Windows
+	  The libpsl subproject wasn't building successfully and CI didn't
+	  notice because:
+	  1. The plugin wasn't explicitly enabled
+	  2. Even when the plugin is explicitly enabled, the dep is not required
+	  at build time when not building a static plugin
+	  So fix all of these issues.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/4890>
+
+2023-07-20 16:57:47 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* docs/gst_plugins_cache.json:
+	* meson.build:
+	  Back to development
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5082>
+
 === release 1.22.5 ===
 
 2023-07-20 15:22:48 +0100  Tim-Philipp Müller <tim@centricular.com>
