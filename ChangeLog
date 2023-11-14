@@ -1,3 +1,173 @@
+=== release 1.22.7 ===
+
+2023-11-13 11:04:22 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* NEWS:
+	* RELEASE:
+	* docs/gst_plugins_cache.json:
+	* gst-plugins-good.doap:
+	* meson.build:
+	  Release 1.22.7
+
+2023-10-04 11:09:37 -0300  Thibault Saunier <tsaunier@igalia.com>
+
+	* ext/adaptivedemux2/downloadhelper.c:
+	* ext/adaptivedemux2/downloadrequest.c:
+	* ext/adaptivedemux2/downloadrequest.h:
+	  adaptivedemux2: Do not submit_transfer when cancelled
+	  There is a race condition where transfer has not been submitted yet while the
+	  request is cancelled which leads to the transfer state going back to
+	  `DOWNLOAD_REQUEST_STATE_OPEN` and the user of the request to get signalled about
+	  its completion (and the task actually happening after it was cancelled) leading
+	  to assertions and misbehaviours.
+	  To ensure that this race can't happen, we start differentiating between the
+	  UNSENT and CANCELLED states as in the normal case, when entering `submit_request`
+	  the state is UNSENT and at that point we need to know that it is not because
+	  the request has been cancelled.
+	  In practice this case lead to an assertion in
+	  `gst_adaptive_demux2_stream_begin_download_uri` because in a previous call to
+	  `gst_adaptive_demux2_stream_stop_default` we cancelled the previous request and
+	  setup a new one while it had not been submitted yet and then got a `on_download_complete`
+	  callback called from that previous cancelled request and then we tried to do
+	  `download_request_set_uri` on a request that was still `in_use`, leading to
+	  something like:
+	  ```
+	  #0: 0x0000000186655ec8 g_assert (request->in_use == FALSE)assert.c:0
+	  #1: 0x00000001127236b8 libgstadaptivedemux2.dylib`download_request_set_uri(request=0x000060000017cc00, uri="https://XXX/chunk-stream1-00002.webm", range_start=0, range_end=-1) at downloadrequest.c:361
+	  #2: 0x000000011271cee8 libgstadaptivedemux2.dylib`gst_adaptive_demux2_stream_begin_download_uri(stream=0x00000001330f1800, uri="https://XXX/chunk-stream1-00002.webm", start=0, end=-1) at gstadaptivedemux-stream.c:1447
+	  #3: 0x0000000112719898 libgstadaptivedemux2.dylib`gst_adaptive_demux2_stream_load_a_fragment [inlined] gst_adaptive_demux2_stream_download_fragment(stream=0x00000001330f1800) at gstadaptivedemux-stream.c:0
+	  #4: 0x00000001127197f8 libgstadaptivedemux2.dylib`gst_adaptive_demux2_stream_load_a_fragment(stream=0x00000001330f1800) at gstadaptivedemux-stream.c:1969
+	  #5: 0x000000011271c2a4 libgstadaptivedemux2.dylib`gst_adaptive_demux2_stream_next_download(stream=0x00000001330f1800) at gstadaptivedemux-stream.c:2112
+	  ```
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5611>
+
+2023-10-09 09:11:47 +0000  Johan Adam Nilsson <johan.adam.nilsson@gmail.com>
+
+	* gst/wavparse/gstwavparse.c:
+	  wavparse: fix buffer leak with adtl tag
+	  Fixes: https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/3020
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5597>
+
+2023-10-24 18:20:34 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* ext/libpng/gstpngenc.c:
+	  pngenc: mark output frames as I-frames
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5564>
+
+2023-10-24 18:12:44 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* ext/libpng/gstpngenc.c:
+	* ext/libpng/gstpngenc.h:
+	  pngenc: output one frame only in snapshot mode
+	  In snapshot mode pngenc should output exactly one frame
+	  and then return FLOW_EOS to upstream. If upstream sends
+	  more input frames before shutting down, it should keep
+	  returning FLOW_EOS but not output any more encoded frames.
+	  After a flushing seek it should output frames again though.
+	  Fixes #3069.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5564>
+
+2023-10-17 15:24:22 +0200  Matthias Fuchs <matthias1.fuchs@zeiss.com>
+
+	* ext/qt/gstqtsrc.cc:
+	  qmlglsrc: sync on the streaming thread
+	  After rendering a QML scene the qmlglsrc element copies the contents of
+	  the scene to a GStreamer buffer. This happens on the Qt render thread.
+	  Then it attaches a sync point to the destination buffer. This sync point
+	  must be awaited by other threads which use the buffer later on. The
+	  current implementation relies on the downstream elements to wait for the
+	  sync point. However, there are situation where this does not work. The
+	  GstBaseTransform e.g. copies the buffer metadata (which overwrites the
+	  sync point without waiting for it) *before* waiting for the sync point.
+	  This commit waits for the sync point inside the qmlglsrc element before
+	  sending it downstream. The wait command is issued on the streaming
+	  thread with the pipeline OpenGL context, i.e. it will synchronize with
+	  the GStreamer OpenGL thread.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5515>
+
+2023-10-12 16:05:18 +0200  Stéphane Cerveau <scerveau@igalia.com>
+
+	* gst/multifile/gstimagesequencesrc.c:
+	  imagesequencesrc: fix regular image deadlock
+	  With one regular image file path provided (without %05d),
+	  the element was stuck in a dead loop counting the frames:
+	  gst_image_sequence_src_count_frames
+	  This allows to display any image file out of the element
+	  for a given number of buffers.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5487>
+
+2023-10-11 14:47:33 +0200  Guillaume Desmottes <guillaume.desmottes@onestream.live>
+
+	* gst/flv/gstflvmux.c:
+	  flvmux: set the src segment position as running time
+	  We were already converting the pad last timestamp to running time but
+	  not the segment position.
+	  This segment position is used by gst_aggregator_simple_get_next_time()
+	  to compute the waiting time when aggregating.
+	  Those waiting times were wrong in my live pipeline using the system
+	  clock, resulting in the aggregator to never wait at all.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5465>
+
+2023-10-11 09:36:11 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2object.c:
+	  v4l2: Fix tiled formats stride conversion
+	  While adding arbitrary tile support, a round up operation was badly
+	  converter. This caused the Y component of the stride to be 0. This
+	  eventually lead to a crash in glupoad preceded by the following
+	  assertion.
+	  gst_gl_buffer_allocation_params_new: assertion 'alloc_size > 0' failed
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5463>
+
+2023-09-28 18:03:31 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/flac/gstflacenc.c:
+	  flacenc: Correctly handle up to 255 cue entries
+	  The counter was using a signed 8 bit integer, which was overflowing
+	  after 127 entries. That was then passed as an unsigned 32 bit integer to
+	  libflac, which caused it to be converted to a huge unsigned number.
+	  That then caused an invalid memory access inside libflac.
+	  As a bonus, signed integer overflow is undefined behaviour.
+	  Instead, use an unsigned 8 bit integer. Once this overflows the existing
+	  code already catches it and stops adding the cue. While FLAC__metadata_object_cuesheet_insert_track()
+	  takes an unsigned 32 bit integer for the track number, FLAC__StreamMetadata_CueSheet_Track is
+	  limiting it to an unsigned 8 bit integer.
+	  Fixes https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/2921
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5436>
+
+2023-09-26 16:48:10 +0000  Florian Zwoch <fzwoch@gmail.com>
+
+	* ext/adaptivedemux2/downloadhelper.c:
+	  adaptivedemux2: Call GTasks's return functions for blocking tasks
+	  Gio/Task states the following:
+	  If a GTask has been constructed and its callback set, it is an error to
+	  not call g_task_return_*() on it. GLib will warn at runtime if this
+	  happens (since 2.76).
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5414>
+
+2023-09-27 08:48:03 +0200  Albert Sjölund <alberts@axis.com>
+
+	* ext/soup/gstsouphttpsrc.c:
+	  souphttpsrc: Chain finalize call to parent
+	  GstSoupSession finalize does not chain parent finalize,
+	  causing it to leak memory, shown under g freeze notify.
+	  In finalize method, ensure all branches call to parent
+	  finalize.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5402>
+
+2023-09-22 16:57:28 +0900  Hou Qi <qi.hou@nxp.com>
+
+	* sys/v4l2/gstv4l2videodec.c:
+	  v4l2videodec: Correctly free caps to avoid memory leak
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5388>
+
+2023-09-20 19:41:00 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* docs/gst_plugins_cache.json:
+	* meson.build:
+	  Back to development
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5371>
+
 === release 1.22.6 ===
 
 2023-09-20 18:10:57 +0100  Tim-Philipp Müller <tim@centricular.com>
