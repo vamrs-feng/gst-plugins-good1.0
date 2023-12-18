@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: gst-plugins-good-1.22.7\n"
+"Project-Id-Version: gst-plugins-good-1.22.8\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-11-13 11:07+0000\n"
+"POT-Creation-Date: 2023-12-18 12:13+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -99,39 +99,39 @@ msgstr ""
 msgid "This file contains no playable streams."
 msgstr ""
 
-#: gst/isomp4/qtdemux.c:556 gst/isomp4/qtdemux.c:7408 gst/isomp4/qtdemux.c:7477
-#: gst/isomp4/qtdemux.c:7783 gst/isomp4/qtdemux.c:9181
+#: gst/isomp4/qtdemux.c:556 gst/isomp4/qtdemux.c:7417 gst/isomp4/qtdemux.c:7486
+#: gst/isomp4/qtdemux.c:7792 gst/isomp4/qtdemux.c:9190
 msgid "This file is invalid and cannot be played."
 msgstr ""
 
-#: gst/isomp4/qtdemux.c:3045
+#: gst/isomp4/qtdemux.c:3049
 msgid "Cannot play stream because it is encrypted with PlayReady DRM."
 msgstr ""
 
-#: gst/isomp4/qtdemux.c:4364 gst/isomp4/qtdemux.c:8568
-#: gst/isomp4/qtdemux.c:8575 gst/isomp4/qtdemux.c:9883
-#: gst/isomp4/qtdemux.c:10325 gst/isomp4/qtdemux.c:10332
-#: gst/isomp4/qtdemux.c:13572
+#: gst/isomp4/qtdemux.c:4368 gst/isomp4/qtdemux.c:8577
+#: gst/isomp4/qtdemux.c:8584 gst/isomp4/qtdemux.c:9892
+#: gst/isomp4/qtdemux.c:10334 gst/isomp4/qtdemux.c:10341
+#: gst/isomp4/qtdemux.c:13581
 msgid "This file is corrupt and cannot be played."
 msgstr ""
 
-#: gst/isomp4/qtdemux.c:4606
+#: gst/isomp4/qtdemux.c:4610
 msgid "Invalid atom size."
 msgstr ""
 
-#: gst/isomp4/qtdemux.c:4659 gst/isomp4/qtdemux.c:4666
+#: gst/isomp4/qtdemux.c:4663 gst/isomp4/qtdemux.c:4670
 msgid "Cannot query file size"
 msgstr ""
 
-#: gst/isomp4/qtdemux.c:4675
+#: gst/isomp4/qtdemux.c:4679
 msgid "Cannot demux file"
 msgstr ""
 
-#: gst/isomp4/qtdemux.c:4715
+#: gst/isomp4/qtdemux.c:4719
 msgid "This file is incomplete and cannot be played."
 msgstr ""
 
-#: gst/isomp4/qtdemux.c:11466
+#: gst/isomp4/qtdemux.c:11475
 msgid "The video in this file might not play correctly."
 msgstr ""
 
@@ -208,7 +208,7 @@ msgstr ""
 msgid "Raspberry Pi Camera Module"
 msgstr ""
 
-#: sys/v4l2/gstv4l2bufferpool.c:1858
+#: sys/v4l2/gstv4l2bufferpool.c:1861
 #, c-format
 msgid "Error reading %d bytes from device '%s'."
 msgstr ""

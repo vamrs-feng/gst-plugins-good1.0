@@ -1,3 +1,125 @@
+=== release 1.22.8 ===
+
+2023-12-18 12:09:37 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* NEWS:
+	* RELEASE:
+	* docs/gst_plugins_cache.json:
+	* gst-plugins-good.doap:
+	* meson.build:
+	  Release 1.22.8
+
+2023-12-15 15:19:35 -0500  Arun Raghavan <arun@asymptotic.io>
+
+	* gst/rtp/gstrtpchannels.c:
+	  rtp: Fix incorrect RTP channel order lookup by name
+	  The g_ascii_strcasecmp() logic is inverted, since it returns 0 on equality.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5817>
+
+2023-04-29 16:20:13 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* gst/matroska/matroska-demux.c:
+	* tests/check/elements/matroskademux.c:
+	  matroska-demux: fix accumulated base offset in segment seeks
+	  When doing a segment seek, the base offset in the new segment
+	  would be increased by segment.position which is basically the
+	  timestamp of the last packet. This does not include the duration
+	  of the last packet though, so might be slightly shorter than the
+	  actual duration of the clip or the requested segment.
+	  Increase the base offset by the segment duration instead when
+	  accumulating segments, which is more correct as it doesn't cut
+	  off the last frame and makes the effective loop segment duration
+	  consistent with the actual duration returned from a duration
+	  query.
+	  In case a segment stop was specified it's also possible that
+	  some data was sent beyond the stop that's necessary for decoding
+	  so the base offset increment should be based on that then and
+	  not on the timestamp of the last buffer pushed out.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5787>
+
+2023-12-05 09:25:22 +0100  Guillaume Desmottes <guillaume.desmottes@onestream.live>
+
+	* gst/isomp4/qtdemux_tags.c:
+	* meson.build:
+	  qtdemux: fix bug report URL
+	  Using PACKAGE_BUGREPORT as in other modules.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5786>
+
+2023-12-01 14:51:49 +0900  Hosang Lee <hosang10.lee@lge.com>
+
+	* gst/isomp4/qtdemux.c:
+	  qtdemux: Don't overflow sample index
+	  Don't reduce sample index if it is already at 0.
+	  Assigning -1 to a guint32 variable causes unexpected behavior.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5751>
+
+2023-12-01 15:05:41 +0900  Hosang Lee <hosang10.lee@lge.com>
+
+	* gst/isomp4/qtdemux.c:
+	  qtdemux: Fix reverse playback for pcm audio stream
+	  Some raw lpcm or adpcm may have larger sample sizes than the max
+	  buffer size value set.
+	  Trimming the buffer causes bogus size error on reverse playback.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5745>
+
+2023-04-21 09:58:36 +0800  jeri.li <jeri.li@mediatek.com>
+
+	* sys/v4l2/gstv4l2bufferpool.c:
+	  v4l2bufferpool: add lock as atomic operation for seek
+	  When seek flush, gst v4l2 buffer pool flush is not atomic which will
+	  lead double enqueue buffer (qbuf) issue, and v4l2 buffer pool qbuf is
+	  also not atomic which will lead no free buffer found in the pool.
+	  1. add lock for calculate enqueue number in streamon function
+	  2. add lock for v4l2 capture end streamoff in pool flush function
+	  3. lock the whole funciton of v4l2 buffer pool qbuf, then the buffer
+	  pool index and qbuf operation are atomic
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5695>
+
+2023-06-07 14:38:18 +0200  Robin Gustavsson <robin.gustavsson@spiideo.com>
+
+	* gst/rtp/gstrtpklvdepay.c:
+	* tests/check/elements/rtp-payloading.c:
+	  rtpklvdepay: Recover after invalid fragmented KLV unit
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5686>
+
+2023-06-29 15:20:29 +0200  Piotr Brzeziński <piotr@centricular.com>
+
+	* gst/isomp4/qtdemux.c:
+	  qtdemux: Ignore raw audio streams when adjusting seek
+	  Because we treat raw audio chunks/samples as keyframes, they were interfering
+	  with seek time adjustment.
+	  Became apparent when the accompanying video stream was I-frame only,
+	  for example ProRes.
+	  Since raw audio streams can be seeked freely, it's fine to just ignore them here,
+	  giving priority to the real keyframes in the video stream.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5674>
+
+2023-10-12 17:23:00 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* docs/gst_plugins_cache.json:
+	* gst/rtp/gstrtpac3depay.c:
+	  rtpac3depay: should output audio/x-ac3 not audio/ac3
+	  audio/x-ac3 is the canonical media format in GStreamer.
+	  audio/ac3 is sometimes accepted as input (e.g. in rtpac3pay
+	  or ac3parse), but shouldn't be output.
+	  Fixes #3038.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5662>
+
+2023-11-14 15:36:34 +0900  Dongyun Seo <dongyun.seo@lge.com>
+
+	* gst/audioparsers/gstdcaparse.c:
+	  dcaparse: keep upstream buffer meta
+	  Some audio decoders cannot decode DTS stream if there is no
+	  valid timestamp. So, keep upstream buffer meta.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5664>
+
+2023-11-13 14:57:09 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* docs/gst_plugins_cache.json:
+	* meson.build:
+	  Back to development
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5650>
+
 === release 1.22.7 ===
 
 2023-11-13 11:04:22 +0000  Tim-Philipp Müller <tim@centricular.com>
