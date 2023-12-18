@@ -1144,6 +1144,10 @@ gst_qtdemux_adjust_seek (GstQTDemux * qtdemux, gint64 desired_time,
     if (CUR_STREAM (str)->sparse && !use_sparse)
       continue;
 
+    /* raw audio streams can be ignored as we can seek anywhere within them */
+    if (str->subtype == FOURCC_soun && str->need_clip)
+      continue;
+
     seg_idx = gst_qtdemux_find_segment (qtdemux, str, desired_time);
     GST_DEBUG_OBJECT (qtdemux, "align segment %d", seg_idx);
 
@@ -5016,7 +5020,12 @@ gst_qtdemux_seek_to_previous_keyframe (GstQTDemux * qtdemux)
     }
 
     /* Remember until where we want to go */
-    str->to_sample = str->from_sample - 1;
+    if (str->from_sample == 0) {
+      GST_LOG_OBJECT (qtdemux, "already at sample 0");
+      str->to_sample = 0;
+    } else {
+      str->to_sample = str->from_sample - 1;
+    }
     /* Define our time position */
     target_ts =
         str->samples[k_index].timestamp + str->samples[k_index].pts_offset;
@@ -15576,7 +15585,7 @@ qtdemux_audio_caps (GstQTDemux * qtdemux, QtDemuxStream * stream,
   if (g_str_has_prefix (name, "audio/x-raw")) {
     stream->need_clip = TRUE;
     stream->min_buffer_size = 1024 * entry->bytes_per_frame;
-    stream->max_buffer_size = 4096 * entry->bytes_per_frame;
+    stream->max_buffer_size = entry->rate * entry->bytes_per_frame;
     GST_DEBUG ("setting min/max buffer sizes to %d/%d", stream->min_buffer_size,
         stream->max_buffer_size);
   }
