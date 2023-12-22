@@ -1,3 +1,10 @@
+gst-plugins-good1.0 (1.22.8-3) unstable; urgency=medium
+
+  * Team upload
+  * Disable qt-egl on hurd since it is Linux-only
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Thu, 21 Dec 2023 19:28:48 -0500
+
 gst-plugins-good1.0 (1.22.8-2) unstable; urgency=medium
 
   * Team upload
