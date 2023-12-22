@@ -53,6 +53,11 @@ ifneq (,$(filter $(DEB_HOST_ARCH), i386 hurd-i386))
 conf_flags += -Dqt-wayland=disabled
 endif
 
+# qt-egl is not available on non-Linux
+ifneq (,$(filter $(DEB_HOST_ARCH), hurd-i386))
+conf_flags += -Dqt-egl=disabled
+endif
+
 %:
 	dh $@
 
