@@ -1,3 +1,91 @@
+=== release 1.22.9 ===
+
+2024-01-24 18:21:13 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* NEWS:
+	* RELEASE:
+	* docs/gst_plugins_cache.json:
+	* gst-plugins-good.doap:
+	* meson.build:
+	  Release 1.22.9
+
+2024-01-22 17:01:19 -0500  Dan Searles <Dan.Searles@garmin.com>
+
+	* gst/rtsp/gstrtspsrc.c:
+	  rtspsrc: fix ttl setting for udpsink[1]
+	  Fix ttl setting being incorrectly applied to udpsink[0] rather
+	  than to udpsink[1].
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5967>
+
+2024-01-22 12:18:25 -0500  Dan Searles <Dan.Searles@garmin.com>
+
+	* gst/rtsp/gstrtspsrc.c:
+	  rtspsrc: set multicast-iface on udpsinks
+	  Copy rtspsrc property multicast-iface to its udpsinks to
+	  allow messages over those sinks back to the server to work (and
+	  prevent 'Network unreachable' warnings).
+	  Closes: #3239
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5967>
+
+2023-12-06 20:42:32 -0800  Xavier Claessens <xavier.claessens@collabora.com>
+
+	* sys/v4l2/gstv4l2src.c:
+	  v4l2src: Consider framerate during caps selection
+	  This simplifies the way it picks the closest caps to preference and take into
+	  consideration the framerate to avoid picking high resolution at 5fps or so.
+	  Simply calculate a "distance" of caps A and B from the preference and put
+	  closest first, sorting by framerate first.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5956>
+
+2024-01-12 12:51:27 +0000  Philippe Normand <philn@igalia.com>
+
+	* ext/vpx/gstvpxdec.c:
+	  vpxdec: Use appropriate domain and code for decoding errors
+	  STREAM domain and DECODE error is commonly used in other decoders. ENCODE is for
+	  encoders.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5918>
+
+2023-11-16 11:42:27 +0530  Sanchayan Maity <sanchayan@asymptotic.io>
+
+	* gst/rtpmanager/gstrtphdrext-clientaudiolevel.c:
+	  rtphdrext-clientaudiolevel: Fix level value being written by the extension
+	  When level value is greater than 127, it was being clamped but this clamped
+	  value was not the one being actually used. For level values greater than 127
+	  this resulted in an incorrect value being used. As an example, a level value
+	  of 187, after and'ed with 0x7F, it would result in 0x3B being reported as the
+	  level value.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5894>
+
+2023-12-22 12:56:33 +0200  Sebastian Dröge <sebastian@centricular.com>
+
+	* gst/rtpmanager/gstrtpsession.c:
+	  rtpsession: Only warn once if configured latency needs to be known but isn't yet
+	  Otherwise we would warn about this once for every single packet until
+	  the LATENCY event is received.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5874>
+
+2023-12-18 11:03:57 +0900  Chao Guo <chao.guo@nxp.com>
+
+	* sys/v4l2/gstv4l2object.c:
+	  v4l2object: clear old fds in poll when closing v4l2object
+	  When reopening a v4l2 device, the v4l2object->poll will include some old fds,
+	  which was assigned to this device before. If the pipeline opens multiple v4l2
+	  devices, the old fd may been assigned to other v4l2 devices when reopening
+	  devices.
+	  This will cause the timing of the pipeline become confusing when polling devices,
+	  leading functional abnormalities.
+	  Therefore, when closing v4l2object, remove the old fds in poll to ensure that the
+	  pipeline timing is normal.
+	  Signed-off-by: Chao Guo <chao.guo@nxp.com>
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5840>
+
+2023-12-18 13:52:12 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* docs/gst_plugins_cache.json:
+	* meson.build:
+	  Back to development
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5826>
+
 === release 1.22.8 ===
 
 2023-12-18 12:09:37 +0000  Tim-Philipp Müller <tim@centricular.com>
