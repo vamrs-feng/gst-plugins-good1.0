@@ -3,7 +3,8 @@ Section: libs
 Priority: optional
 Maintainer: Maintainers of GStreamer packages <gst-plugins-good1.0@packages.debian.org>
 Uploaders: Sebastian Dröge <slomo@debian.org>,
-           Sjoerd Simons <sjoerd@debian.org>
+           Sjoerd Simons <sjoerd@debian.org>,
+           Marc Leeman <marc.leeman@gmail.com>,
 Build-Depends: debhelper,
                debhelper-compat (= 13),
                dpkg-dev (>= 1.15.1),
