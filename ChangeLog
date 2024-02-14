@@ -1,3 +1,46 @@
+=== release 1.22.10 ===
+
+2024-02-13 14:39:08 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* NEWS:
+	* RELEASE:
+	* docs/gst_plugins_cache.json:
+	* gst-plugins-good.doap:
+	* meson.build:
+	  Release 1.22.10
+
+2023-05-11 20:01:45 +0200  Piotr Brzeziński <piotr@centricular.com>
+
+	* sys/osxvideo/osxvideosink.m:
+	  macos: Set activation policy in osxvideosink and glimagesink
+	  Upon creating a window, glimagesink and osxvideosink now set the policy to
+	  NSApplicationActivationPolicyRegular, which lets us show an icon in the Dock
+	  for convenience and appear in the top menu bar like other apps.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6103>
+
+2024-01-25 20:13:51 +0100  Jonas Kvinge <jonas@jkvinge.net>
+
+	* ext/taglib/meson.build:
+	  meson: Set cpp_std to c++17 for TagLib
+	  TagLib uses C++17 as of version 2.0.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6097>
+
+2024-02-04 14:00:01 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* tests/check/elements/souphttpsrc.c:
+	  test: souphttpsrc: update test_icy_stream url
+	  The old URL would result in multiple redirects, which
+	  causes memory leaks with old versions of libsoup as
+	  used on the CI.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6049>
+
+2024-01-25 00:18:12 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* docs/gst_plugins_cache.json:
+	* meson.build:
+	  Back to development
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/5990>
+
 === release 1.22.9 ===
 
 2024-01-24 18:21:13 +0000  Tim-Philipp Müller <tim@centricular.com>
