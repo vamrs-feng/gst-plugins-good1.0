@@ -1,3 +1,11 @@
+gst-plugins-good1.0 (1.22.10-1) unstable; urgency=medium
+
+  * d/watch: pin master releases on 1.22.x
+  * New upstream version 1.22.10
+  * d/control: pkg-config is transitional
+
+ -- Marc Leeman <marc.leeman@gmail.com>  Wed, 14 Feb 2024 11:49:20 +0100
+
 gst-plugins-good1.0 (1.22.9-1) unstable; urgency=medium
 
   * New upstream version 1.22.9
