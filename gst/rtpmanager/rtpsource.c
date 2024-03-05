@@ -328,7 +328,7 @@ void
 rtp_conflicting_address_free (RTPConflictingAddress * addr)
 {
   g_object_unref (addr->address);
-  g_slice_free (RTPConflictingAddress, addr);
+  g_free (addr);
 }
 
 static void
@@ -1415,7 +1415,8 @@ rtp_source_send_rtp (RTPSource * src, RTPPacketInfo * pinfo)
 
   running_time = pinfo->running_time;
 
-  do_bitrate_estimation (src, running_time, &src->bytes_sent);
+  if (GST_CLOCK_TIME_IS_VALID (running_time))
+    do_bitrate_estimation (src, running_time, &src->bytes_sent);
 
   rtptime = pinfo->rtptime;
 
@@ -1427,7 +1428,9 @@ rtp_source_send_rtp (RTPSource * src, RTPPacketInfo * pinfo)
 
   if (ext_rtptime > src->last_rtptime) {
     rtp_diff = ext_rtptime - src->last_rtptime;
-    rt_diff = running_time - src->last_rtime;
+    rt_diff =
+        GST_CLOCK_TIME_IS_VALID (running_time) ? running_time -
+        src->last_rtime : GST_CLOCK_TIME_NONE;
 
     /* calc the diff so we can detect drift at the sender. This can also be used
      * to guestimate the clock rate if the NTP time is locked to the RTP
@@ -1436,10 +1439,12 @@ rtp_source_send_rtp (RTPSource * src, RTPPacketInfo * pinfo)
         GST_TIME_FORMAT, src->ssrc, rtp_diff, GST_TIME_ARGS (rt_diff));
   }
 
-  /* we keep track of the last received RTP timestamp and the corresponding
-   * buffer running_time so that we can use this info when constructing SR reports */
-  src->last_rtime = running_time;
-  src->last_rtptime = ext_rtptime;
+  if (GST_CLOCK_TIME_IS_VALID (running_time)) {
+    /* we keep track of the last received RTP timestamp and the corresponding
+     * buffer running_time so that we can use this info when constructing SR reports */
+    src->last_rtime = running_time;
+    src->last_rtptime = ext_rtptime;
+  }
 
   /* push packet */
   if (!src->callbacks.push_rtp)
@@ -1872,7 +1877,7 @@ add_conflicting_address (GList * conflicting_addresses,
 {
   RTPConflictingAddress *new_conflict;
 
-  new_conflict = g_slice_new (RTPConflictingAddress);
+  new_conflict = g_new (RTPConflictingAddress, 1);
 
   new_conflict->address = G_SOCKET_ADDRESS (g_object_ref (address));
   new_conflict->time = time;

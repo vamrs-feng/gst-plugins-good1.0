@@ -53,7 +53,7 @@ GST_DEBUG_CATEGORY_EXTERN (v4l2_debug);
 #define DEFAULT_PROP_TV_NORM            0
 #define DEFAULT_PROP_IO_MODE            GST_V4L2_IO_AUTO
 
-#define ENCODED_BUFFER_SIZE             (2 * 1024 * 1024)
+#define ENCODED_BUFFER_MIN_SIZE         (256 * 1024)
 #define GST_V4L2_DEFAULT_WIDTH          320
 #define GST_V4L2_DEFAULT_HEIGHT         240
 
@@ -171,6 +171,22 @@ static const GstV4L2FormatDesc gst_v4l2_formats[] = {
   {V4L2_PIX_FMT_SGBRG8, TRUE, GST_V4L2_RAW},
   {V4L2_PIX_FMT_SGRBG8, TRUE, GST_V4L2_RAW},
   {V4L2_PIX_FMT_SRGGB8, TRUE, GST_V4L2_RAW},
+  {V4L2_PIX_FMT_SBGGR10, TRUE, GST_V4L2_RAW},
+  {V4L2_PIX_FMT_SGBRG10, TRUE, GST_V4L2_RAW},
+  {V4L2_PIX_FMT_SGRBG10, TRUE, GST_V4L2_RAW},
+  {V4L2_PIX_FMT_SRGGB10, TRUE, GST_V4L2_RAW},
+  {V4L2_PIX_FMT_SBGGR12, TRUE, GST_V4L2_RAW},
+  {V4L2_PIX_FMT_SGBRG12, TRUE, GST_V4L2_RAW},
+  {V4L2_PIX_FMT_SGRBG12, TRUE, GST_V4L2_RAW},
+  {V4L2_PIX_FMT_SRGGB12, TRUE, GST_V4L2_RAW},
+  {V4L2_PIX_FMT_SBGGR14, TRUE, GST_V4L2_RAW},
+  {V4L2_PIX_FMT_SGBRG14, TRUE, GST_V4L2_RAW},
+  {V4L2_PIX_FMT_SGRBG14, TRUE, GST_V4L2_RAW},
+  {V4L2_PIX_FMT_SRGGB14, TRUE, GST_V4L2_RAW},
+  {V4L2_PIX_FMT_SBGGR16, TRUE, GST_V4L2_RAW},
+  {V4L2_PIX_FMT_SGBRG16, TRUE, GST_V4L2_RAW},
+  {V4L2_PIX_FMT_SGRBG16, TRUE, GST_V4L2_RAW},
+  {V4L2_PIX_FMT_SRGGB16, TRUE, GST_V4L2_RAW},
 
   /* compressed formats */
   {V4L2_PIX_FMT_MJPEG, FALSE, GST_V4L2_CODEC},
@@ -1153,6 +1169,22 @@ gst_v4l2_object_format_get_rank (const struct v4l2_fmtdesc *fmt)
     case V4L2_PIX_FMT_SGBRG8:
     case V4L2_PIX_FMT_SGRBG8:
     case V4L2_PIX_FMT_SRGGB8:
+    case V4L2_PIX_FMT_SBGGR10:
+    case V4L2_PIX_FMT_SGBRG10:
+    case V4L2_PIX_FMT_SGRBG10:
+    case V4L2_PIX_FMT_SRGGB10:
+    case V4L2_PIX_FMT_SBGGR12:
+    case V4L2_PIX_FMT_SGBRG12:
+    case V4L2_PIX_FMT_SGRBG12:
+    case V4L2_PIX_FMT_SRGGB12:
+    case V4L2_PIX_FMT_SBGGR14:
+    case V4L2_PIX_FMT_SGBRG14:
+    case V4L2_PIX_FMT_SGRBG14:
+    case V4L2_PIX_FMT_SRGGB14:
+    case V4L2_PIX_FMT_SBGGR16:
+    case V4L2_PIX_FMT_SGBRG16:
+    case V4L2_PIX_FMT_SGRBG16:
+    case V4L2_PIX_FMT_SRGGB16:
       rank = BAYER_BASE_RANK;
       break;
 
@@ -1466,6 +1498,22 @@ gst_v4l2_object_v4l2fourcc_is_rgb (guint32 fourcc)
     case V4L2_PIX_FMT_SGBRG8:
     case V4L2_PIX_FMT_SGRBG8:
     case V4L2_PIX_FMT_SRGGB8:
+    case V4L2_PIX_FMT_SBGGR10:
+    case V4L2_PIX_FMT_SGBRG10:
+    case V4L2_PIX_FMT_SGRBG10:
+    case V4L2_PIX_FMT_SRGGB10:
+    case V4L2_PIX_FMT_SBGGR12:
+    case V4L2_PIX_FMT_SGBRG12:
+    case V4L2_PIX_FMT_SGRBG12:
+    case V4L2_PIX_FMT_SRGGB12:
+    case V4L2_PIX_FMT_SBGGR14:
+    case V4L2_PIX_FMT_SGBRG14:
+    case V4L2_PIX_FMT_SGRBG14:
+    case V4L2_PIX_FMT_SRGGB14:
+    case V4L2_PIX_FMT_SBGGR16:
+    case V4L2_PIX_FMT_SGBRG16:
+    case V4L2_PIX_FMT_SGRBG16:
+    case V4L2_PIX_FMT_SRGGB16:
       ret = TRUE;
       break;
     default:
@@ -1479,6 +1527,7 @@ static GstStructure *
 gst_v4l2_object_v4l2fourcc_to_bare_struct (guint32 fourcc)
 {
   GstStructure *structure = NULL;
+  const gchar *bayer_format = NULL;
 
   switch (fourcc) {
     case V4L2_PIX_FMT_MJPEG:   /* Motion-JPEG */
@@ -1597,14 +1646,64 @@ gst_v4l2_object_v4l2fourcc_to_bare_struct (guint32 fourcc)
     case V4L2_PIX_FMT_WNVA:    /* Winnov hw compress */
       break;
     case V4L2_PIX_FMT_SBGGR8:
+      bayer_format = "bggr";
+      break;
+    case V4L2_PIX_FMT_SBGGR10:
+      bayer_format = "bggr10le";
+      break;
+    case V4L2_PIX_FMT_SBGGR12:
+      bayer_format = "bggr12le";
+      break;
+    case V4L2_PIX_FMT_SBGGR14:
+      bayer_format = "bggr14le";
+      break;
+    case V4L2_PIX_FMT_SBGGR16:
+      bayer_format = "bggr16le";
+      break;
     case V4L2_PIX_FMT_SGBRG8:
+      bayer_format = "gbrgle";
+      break;
+    case V4L2_PIX_FMT_SGBRG10:
+      bayer_format = "gbrg10le";
+      break;
+    case V4L2_PIX_FMT_SGBRG12:
+      bayer_format = "gbrg12le";
+      break;
+    case V4L2_PIX_FMT_SGBRG14:
+      bayer_format = "gbrg14le";
+      break;
+    case V4L2_PIX_FMT_SGBRG16:
+      bayer_format = "gbrg16le";
+      break;
     case V4L2_PIX_FMT_SGRBG8:
+      bayer_format = "grbgle";
+      break;
+    case V4L2_PIX_FMT_SGRBG10:
+      bayer_format = "grbg10le";
+      break;
+    case V4L2_PIX_FMT_SGRBG12:
+      bayer_format = "grbg12le";
+      break;
+    case V4L2_PIX_FMT_SGRBG14:
+      bayer_format = "grbg14le";
+      break;
+    case V4L2_PIX_FMT_SGRBG16:
+      bayer_format = "grbg16le";
+      break;
     case V4L2_PIX_FMT_SRGGB8:
-      structure = gst_structure_new ("video/x-bayer", "format", G_TYPE_STRING,
-          fourcc == V4L2_PIX_FMT_SBGGR8 ? "bggr" :
-          fourcc == V4L2_PIX_FMT_SGBRG8 ? "gbrg" :
-          fourcc == V4L2_PIX_FMT_SGRBG8 ? "grbg" :
-          /* fourcc == V4L2_PIX_FMT_SRGGB8 ? */ "rggb", NULL);
+      bayer_format = "rggble";
+      break;
+    case V4L2_PIX_FMT_SRGGB10:
+      bayer_format = "rggb10le";
+      break;
+    case V4L2_PIX_FMT_SRGGB12:
+      bayer_format = "rggb12le";
+      break;
+    case V4L2_PIX_FMT_SRGGB14:
+      bayer_format = "rggb14le";
+      break;
+    case V4L2_PIX_FMT_SRGGB16:
+      bayer_format = "rggb16le";
       break;
     case V4L2_PIX_FMT_SN9C10X:
       structure = gst_structure_new_empty ("video/x-sonix");
@@ -1640,6 +1739,10 @@ gst_v4l2_object_v4l2fourcc_to_bare_struct (guint32 fourcc)
           fourcc, GST_FOURCC_ARGS (fourcc));
       break;
   }
+
+  if (bayer_format)
+    structure = gst_structure_new ("video/x-bayer", "format", G_TYPE_STRING,
+        bayer_format, NULL);
 
   return structure;
 }
@@ -1682,7 +1785,7 @@ gst_v4l2_object_is_raw (GstV4l2Object * v4l2object)
 
   for (i = 0; i < GST_V4L2_FORMAT_COUNT; i++) {
     if (gst_v4l2_formats[i].format == GST_V4L2_PIXELFORMAT (v4l2object)) {
-      return ! !(gst_v4l2_formats[i].flags & GST_V4L2_RAW);
+      return !!(gst_v4l2_formats[i].flags & GST_V4L2_RAW);
     }
   }
   return FALSE;
@@ -1995,6 +2098,38 @@ gst_v4l2_object_get_caps_info (GstV4l2Object * v4l2object, GstCaps * caps,
           fourcc = V4L2_PIX_FMT_SGRBG8;
         else if (!g_ascii_strcasecmp (format, "rggb"))
           fourcc = V4L2_PIX_FMT_SRGGB8;
+        else if (!g_ascii_strcasecmp (format, "bggr10le"))
+          fourcc = V4L2_PIX_FMT_SBGGR10;
+        else if (!g_ascii_strcasecmp (format, "gbrg10le"))
+          fourcc = V4L2_PIX_FMT_SGBRG10;
+        else if (!g_ascii_strcasecmp (format, "grbg10le"))
+          fourcc = V4L2_PIX_FMT_SGRBG10;
+        else if (!g_ascii_strcasecmp (format, "rggb10le"))
+          fourcc = V4L2_PIX_FMT_SRGGB10;
+        else if (!g_ascii_strcasecmp (format, "bggr12le"))
+          fourcc = V4L2_PIX_FMT_SBGGR12;
+        else if (!g_ascii_strcasecmp (format, "gbrg12le"))
+          fourcc = V4L2_PIX_FMT_SGBRG12;
+        else if (!g_ascii_strcasecmp (format, "grbg12le"))
+          fourcc = V4L2_PIX_FMT_SGRBG12;
+        else if (!g_ascii_strcasecmp (format, "rggb12le"))
+          fourcc = V4L2_PIX_FMT_SRGGB12;
+        else if (!g_ascii_strcasecmp (format, "bggr14le"))
+          fourcc = V4L2_PIX_FMT_SBGGR14;
+        else if (!g_ascii_strcasecmp (format, "gbrg14le"))
+          fourcc = V4L2_PIX_FMT_SGBRG14;
+        else if (!g_ascii_strcasecmp (format, "grbg14le"))
+          fourcc = V4L2_PIX_FMT_SGRBG14;
+        else if (!g_ascii_strcasecmp (format, "rggb14le"))
+          fourcc = V4L2_PIX_FMT_SRGGB14;
+        else if (!g_ascii_strcasecmp (format, "bggr16le"))
+          fourcc = V4L2_PIX_FMT_SBGGR16;
+        else if (!g_ascii_strcasecmp (format, "gbrg16le"))
+          fourcc = V4L2_PIX_FMT_SGBRG16;
+        else if (!g_ascii_strcasecmp (format, "grbg16le"))
+          fourcc = V4L2_PIX_FMT_SGRBG16;
+        else if (!g_ascii_strcasecmp (format, "rggb16le"))
+          fourcc = V4L2_PIX_FMT_SRGGB16;
       }
     } else if (g_str_equal (mimetype, "video/x-sonix")) {
       fourcc = V4L2_PIX_FMT_SN9C10X;
@@ -2863,6 +2998,8 @@ gst_v4l2_object_probe_caps_for_format (GstV4l2Object * v4l2object,
     goto enum_framesizes_failed;
 
   if (size.type == V4L2_FRMSIZE_TYPE_DISCRETE) {
+    guint32 maxw = 0, maxh = 0;
+
     do {
       GST_LOG_OBJECT (v4l2object->dbg_obj, "got discrete frame size %dx%d",
           size.discrete.width, size.discrete.height);
@@ -2879,8 +3016,16 @@ gst_v4l2_object_probe_caps_for_format (GstV4l2Object * v4l2object,
           results = g_list_prepend (results, tmp);
       }
 
+      if (w > maxw && h > maxh) {
+        maxw = w;
+        maxh = h;
+      }
+
       size.index++;
     } while (v4l2object->ioctl (fd, VIDIOC_ENUM_FRAMESIZES, &size) >= 0);
+
+    v4l2object->max_width = maxw;
+    v4l2object->max_height = maxh;
     GST_DEBUG_OBJECT (v4l2object->dbg_obj,
         "done iterating discrete frame sizes");
   } else if (size.type == V4L2_FRMSIZE_TYPE_STEPWISE) {
@@ -2926,6 +3071,9 @@ gst_v4l2_object_probe_caps_for_format (GstV4l2Object * v4l2object,
 
       /* no point using the results list here, since there's only one struct */
       gst_v4l2_object_update_and_append (v4l2object, pixelformat, ret, tmp);
+
+      v4l2object->max_width = maxw;
+      v4l2object->max_height = maxh;
     }
   } else if (size.type == V4L2_FRMSIZE_TYPE_CONTINUOUS) {
     guint32 maxw, maxh;
@@ -2955,6 +3103,9 @@ gst_v4l2_object_probe_caps_for_format (GstV4l2Object * v4l2object,
 
       /* no point using the results list here, since there's only one struct */
       gst_v4l2_object_update_and_append (v4l2object, pixelformat, ret, tmp);
+
+      v4l2object->max_width = maxw;
+      v4l2object->max_height = maxh;
     }
   } else {
     goto unknown_type;
@@ -3586,6 +3737,19 @@ field_to_str (enum v4l2_field f)
   return "unknown";
 }
 
+static guint
+calculate_max_sizeimage (GstV4l2Object * v4l2object, guint pixel_bitdepth)
+{
+  guint max_width, max_height;
+  guint sizeimage;
+
+  max_width = v4l2object->max_width;
+  max_height = v4l2object->max_height;
+  sizeimage = max_width * max_height * pixel_bitdepth / 8 / 2;
+
+  return MAX (ENCODED_BUFFER_MIN_SIZE, sizeimage);
+}
+
 static gboolean
 gst_v4l2_object_set_format_full (GstV4l2Object * v4l2object, GstCaps * caps,
     gboolean try_only, GstV4l2Error * error)
@@ -3599,6 +3763,7 @@ gst_v4l2_object_set_format_full (GstV4l2Object * v4l2object, GstCaps * caps,
   GstVideoInfo info;
   GstVideoAlignment align;
   gint width, height, fps_n, fps_d;
+  guint pixel_bitdepth = 8;
   gint n_v4l_planes;
   gint i = 0;
   gboolean is_mplane;
@@ -3797,6 +3962,14 @@ gst_v4l2_object_set_format_full (GstV4l2Object * v4l2object, GstCaps * caps,
       "%" GST_FOURCC_FORMAT " stride: %d", width, height,
       GST_FOURCC_ARGS (pixelformat), GST_VIDEO_INFO_PLANE_STRIDE (&info, 0));
 
+  s = gst_caps_get_structure (caps, 0);
+
+  if (gst_structure_has_field (s, "bit-depth-chroma")) {
+    gst_structure_get_uint (s, "bit-depth-chroma", &pixel_bitdepth);
+    GST_DEBUG_OBJECT (v4l2object->element, "Got pixel bit depth %u from caps",
+        pixel_bitdepth);
+  }
+
   memset (&format, 0x00, sizeof (struct v4l2_format));
   format.type = v4l2object->type;
 
@@ -3821,7 +3994,8 @@ gst_v4l2_object_set_format_full (GstV4l2Object * v4l2object, GstCaps * caps,
     }
 
     if (GST_VIDEO_INFO_FORMAT (&info) == GST_VIDEO_FORMAT_ENCODED)
-      format.fmt.pix_mp.plane_fmt[0].sizeimage = ENCODED_BUFFER_SIZE;
+      format.fmt.pix_mp.plane_fmt[0].sizeimage =
+          calculate_max_sizeimage (v4l2object, pixel_bitdepth);
   } else {
     gint stride = GST_VIDEO_INFO_PLANE_STRIDE (&info, 0);
 
@@ -3840,7 +4014,8 @@ gst_v4l2_object_set_format_full (GstV4l2Object * v4l2object, GstCaps * caps,
     format.fmt.pix.bytesperline = stride;
 
     if (GST_VIDEO_INFO_FORMAT (&info) == GST_VIDEO_FORMAT_ENCODED)
-      format.fmt.pix.sizeimage = ENCODED_BUFFER_SIZE;
+      format.fmt.pix.sizeimage =
+          calculate_max_sizeimage (v4l2object, pixel_bitdepth);
   }
 
   GST_DEBUG_OBJECT (v4l2object->dbg_obj, "Desired format is %dx%d, format "
@@ -3918,6 +4093,101 @@ gst_v4l2_object_set_format_full (GstV4l2Object * v4l2object, GstCaps * caps,
   if (format.fmt.pix.pixelformat != pixelformat)
     goto invalid_pixelformat;
 
+  /* Passing HDR10 information
+   *
+   * TODO:
+   *  - Missing capture (v4l2src) HDR10 configuration and/or reporting
+   *  - The API is not capable of HDR to HDR conversion as controls are not specific to queues
+   */
+  if (V4L2_TYPE_IS_OUTPUT (v4l2object->type)) {
+    GstVideoMasteringDisplayInfo video_master_display_info;
+    GstVideoContentLightLevel video_content_light_level;
+    struct v4l2_ext_control ext_control[2];
+    struct v4l2_ctrl_hdr10_mastering_display hdr10_mastering_display;
+    struct v4l2_ctrl_hdr10_cll_info hdr10_cll_info;
+    int count = 0;
+
+    GST_DEBUG_OBJECT (v4l2object->dbg_obj, "Passing HDR10 medata");
+    memset (&hdr10_cll_info, 0, sizeof (struct v4l2_ctrl_hdr10_cll_info));
+    memset (&hdr10_mastering_display,
+        0, sizeof (struct v4l2_ctrl_hdr10_mastering_display));
+
+    if (gst_video_mastering_display_info_from_caps (&video_master_display_info,
+            caps)) {
+      GST_DEBUG_OBJECT (v4l2object->dbg_obj,
+          "video mastering display info: %d:%d:%d:%d:%d:%d:%d:%d:%d:%d",
+          video_master_display_info.display_primaries[0].x,
+          video_master_display_info.display_primaries[0].y,
+          video_master_display_info.display_primaries[1].x,
+          video_master_display_info.display_primaries[1].y,
+          video_master_display_info.display_primaries[2].x,
+          video_master_display_info.display_primaries[2].y,
+          video_master_display_info.white_point.x,
+          video_master_display_info.white_point.y,
+          video_master_display_info.max_display_mastering_luminance,
+          video_master_display_info.min_display_mastering_luminance);
+
+      hdr10_mastering_display.display_primaries_x[2] =
+          video_master_display_info.display_primaries[0].x;
+      hdr10_mastering_display.display_primaries_y[2] =
+          video_master_display_info.display_primaries[0].y;
+      hdr10_mastering_display.display_primaries_x[0] =
+          video_master_display_info.display_primaries[1].x;
+      hdr10_mastering_display.display_primaries_y[0] =
+          video_master_display_info.display_primaries[1].y;
+      hdr10_mastering_display.display_primaries_x[1] =
+          video_master_display_info.display_primaries[2].x;
+      hdr10_mastering_display.display_primaries_y[1] =
+          video_master_display_info.display_primaries[2].y;
+      hdr10_mastering_display.white_point_x =
+          video_master_display_info.white_point.x;
+      hdr10_mastering_display.white_point_y =
+          video_master_display_info.white_point.y;
+      hdr10_mastering_display.min_display_mastering_luminance =
+          video_master_display_info.min_display_mastering_luminance;
+      hdr10_mastering_display.max_display_mastering_luminance =
+          video_master_display_info.max_display_mastering_luminance;
+
+      ext_control[count].id = V4L2_CID_COLORIMETRY_HDR10_MASTERING_DISPLAY;
+      ext_control[count].size =
+          sizeof (struct v4l2_ctrl_hdr10_mastering_display);
+      ext_control[count].ptr = &hdr10_mastering_display;
+      count++;
+    }
+
+    if (gst_video_content_light_level_from_caps (&video_content_light_level,
+            caps)) {
+      GST_DEBUG_OBJECT (v4l2object->dbg_obj, "video content light level: %d:%d",
+          video_content_light_level.max_content_light_level,
+          video_content_light_level.max_frame_average_light_level);
+
+      hdr10_cll_info.max_content_light_level =
+          video_content_light_level.max_content_light_level;
+      hdr10_cll_info.max_pic_average_light_level =
+          video_content_light_level.max_frame_average_light_level;
+
+      ext_control[count].id = V4L2_CID_COLORIMETRY_HDR10_CLL_INFO;
+      ext_control[count].size = sizeof (struct v4l2_ctrl_hdr10_cll_info);
+      ext_control[count].ptr = &hdr10_cll_info;
+      count++;
+    }
+
+    if (count != 0) {
+      struct v4l2_ext_controls ext_controls = {
+        .ctrl_class = V4L2_CTRL_CLASS_COLORIMETRY,
+        .count = count,
+        .controls = ext_control,
+      };
+
+      if (v4l2object->ioctl (fd, VIDIOC_S_EXT_CTRLS, &ext_controls) < 0) {
+        if (errno != ENOTTY) {
+          GST_WARNING_OBJECT (v4l2object->dbg_obj,
+              "Failed to set HDR10 metadata, err: %s", g_strerror (errno));
+        }
+      }
+    }
+  }
+
   /* Only negotiate size with raw data.
    * For some codecs the dimensions are *not* in the bitstream, IIRC VC1
    * in ASF mode for example, there is also not reason for a driver to
@@ -3938,8 +4208,6 @@ gst_v4l2_object_set_format_full (GstV4l2Object * v4l2object, GstCaps * caps,
     goto invalid_planes;
 
   /* used to check colorimetry and interlace mode fields presence */
-  s = gst_caps_get_structure (caps, 0);
-
   if (gst_v4l2_object_get_interlace_mode (format.fmt.pix.field,
           &info.interlace_mode)) {
     if (gst_structure_has_field (s, "interlace-mode")) {
@@ -4423,7 +4691,7 @@ unsupported_format:
  * Returns: %TRUE on success, %FALSE on failure.
  */
 gboolean
-gst_v4l2_object_set_crop (GstV4l2Object * obj, struct v4l2_rect * crop_rect)
+gst_v4l2_object_set_crop (GstV4l2Object * obj, struct v4l2_rect *crop_rect)
 {
   struct v4l2_selection sel = { 0 };
   struct v4l2_crop crop = { 0 };
@@ -4546,14 +4814,13 @@ gst_v4l2_object_get_crop_rect (GstV4l2Object * obj, guint target,
 }
 
 gboolean
-gst_v4l2_object_get_crop_bounds (GstV4l2Object * obj, struct v4l2_rect * result)
+gst_v4l2_object_get_crop_bounds (GstV4l2Object * obj, struct v4l2_rect *result)
 {
   return gst_v4l2_object_get_crop_rect (obj, V4L2_SEL_TGT_CROP_BOUNDS, result);
 }
 
 gboolean
-gst_v4l2_object_get_crop_default (GstV4l2Object * obj,
-    struct v4l2_rect * result)
+gst_v4l2_object_get_crop_default (GstV4l2Object * obj, struct v4l2_rect *result)
 {
   return gst_v4l2_object_get_crop_rect (obj, V4L2_SEL_TGT_CROP_DEFAULT, result);
 }

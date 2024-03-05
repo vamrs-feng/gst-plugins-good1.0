@@ -47,6 +47,8 @@
 #include "gstflvmux.h"
 #include "amfdefs.h"
 
+#include <gst/glib-compat-private.h>
+
 GST_DEBUG_CATEGORY_STATIC (flvmux_debug);
 #define GST_CAT_DEFAULT flvmux_debug
 
@@ -57,12 +59,14 @@ enum
   PROP_METADATACREATOR,
   PROP_ENCODER,
   PROP_SKIP_BACKWARDS_STREAMS,
+  PROP_ENFORCE_INCREASING_TIMESTAMPS,
 };
 
 #define DEFAULT_STREAMABLE FALSE
 #define MAX_INDEX_ENTRIES 128
-#define DEFAULT_METADATACREATOR "GStreamer " PACKAGE_VERSION " FLV muxer"
+#define DEFAULT_METADATACREATOR "GStreamer {VERSION} FLV muxer"
 #define DEFAULT_SKIP_BACKWARDS_STREAMS FALSE
+#define DEFAULT_ENFORCE_INCREASING_TIMESTAMPS TRUE
 
 static GstStaticPadTemplate src_templ = GST_STATIC_PAD_TEMPLATE ("src",
     GST_PAD_SRC,
@@ -219,7 +223,7 @@ typedef struct
 static void
 gst_flv_mux_index_entry_free (GstFlvMuxIndexEntry * entry)
 {
-  g_slice_free (GstFlvMuxIndexEntry, entry);
+  g_free (entry);
 }
 
 static GstBuffer *
@@ -291,6 +295,23 @@ gst_flv_mux_class_init (GstFlvMuxClass * klass)
           DEFAULT_SKIP_BACKWARDS_STREAMS,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
+ /**
+   * GstFlvMux:enforce-increasing-timestamps:
+   *
+   * If set to true, flvmux will modify buffers timestamps to ensure they are always
+   * strictly increasing, inside one stream and also between the audio and video streams.
+   *
+   * Since: 1.24
+   */
+  g_object_class_install_property (gobject_class,
+      PROP_ENFORCE_INCREASING_TIMESTAMPS,
+      g_param_spec_boolean ("enforce-increasing-timestamps",
+          "Enforce increasing timestamps",
+          "If set to true, flvmux will modify buffers timestamps to ensure they are always "
+          "strictly increasing, inside one stream and also between the audio and video streams",
+          DEFAULT_ENFORCE_INCREASING_TIMESTAMPS,
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
   gstaggregator_class->create_new_pad =
       GST_DEBUG_FUNCPTR (gst_flv_mux_create_new_pad);
   gstelement_class->release_pad = GST_DEBUG_FUNCPTR (gst_flv_mux_release_pad);
@@ -328,8 +349,9 @@ gst_flv_mux_init (GstFlvMux * mux)
   mux->streamable = DEFAULT_STREAMABLE;
   mux->metadatacreator = g_strdup (DEFAULT_METADATACREATOR);
   mux->encoder = g_strdup (DEFAULT_METADATACREATOR);
+  mux->enforce_increasing_timestamps = DEFAULT_ENFORCE_INCREASING_TIMESTAMPS;
 
-  mux->new_tags = FALSE;
+  mux->new_metadata = FALSE;
 
   gst_flv_mux_reset (GST_ELEMENT (mux));
 }
@@ -384,7 +406,7 @@ gst_flv_mux_reset (GstElement * element)
   mux->byte_count = 0;
 
   mux->duration = GST_CLOCK_TIME_NONE;
-  mux->new_tags = FALSE;
+  mux->new_metadata = FALSE;
   mux->first_timestamp = GST_CLOCK_TIME_NONE;
   mux->last_dts = 0;
 
@@ -442,7 +464,7 @@ gst_flv_mux_sink_event (GstAggregator * aggregator, GstAggregatorPad * pad,
       gst_event_parse_tag (event, &list);
       gst_tag_setter_merge_tags (setter, list, mode);
       gst_flv_mux_store_codec_tags (mux, flvpad, list);
-      mux->new_tags = TRUE;
+      mux->new_metadata = TRUE;
       ret = TRUE;
       break;
     }
@@ -465,6 +487,8 @@ gst_flv_mux_video_pad_setcaps (GstFlvMuxPad * pad, GstCaps * caps)
   GstStructure *s;
   guint old_codec;
   GstBuffer *old_codec_data = NULL;
+
+  GST_DEBUG_OBJECT (pad, "%" GST_PTR_FORMAT, caps);
 
   old_codec = pad->codec;
   if (pad->codec_data)
@@ -497,6 +521,7 @@ gst_flv_mux_video_pad_setcaps (GstFlvMuxPad * pad, GstCaps * caps)
 
   if (ret && mux->streamable && mux->state != GST_FLV_MUX_STATE_HEADER) {
     if (old_codec != pad->codec) {
+      GST_DEBUG_OBJECT (pad, "pad info changed");
       pad->info_changed = TRUE;
     }
 
@@ -505,16 +530,21 @@ gst_flv_mux_video_pad_setcaps (GstFlvMuxPad * pad, GstCaps * caps)
 
       gst_buffer_map (old_codec_data, &map, GST_MAP_READ);
       if (map.size != gst_buffer_get_size (pad->codec_data) ||
-          gst_buffer_memcmp (pad->codec_data, 0, map.data, map.size))
+          gst_buffer_memcmp (pad->codec_data, 0, map.data, map.size)) {
+        GST_DEBUG_OBJECT (pad, "codec data changed");
         pad->info_changed = TRUE;
+      }
 
       gst_buffer_unmap (old_codec_data, &map);
     } else if (!old_codec_data && pad->codec_data) {
+      GST_DEBUG_OBJECT (pad, "codec data changed");
       pad->info_changed = TRUE;
     }
 
-    if (pad->info_changed)
+    if (pad->info_changed) {
       mux->state = GST_FLV_MUX_STATE_HEADER;
+      mux->new_metadata = TRUE;
+    }
   }
 
   if (old_codec_data)
@@ -533,6 +563,8 @@ gst_flv_mux_audio_pad_setcaps (GstFlvMuxPad * pad, GstCaps * caps)
   GstStructure *s;
   guint old_codec, old_rate, old_width, old_channels;
   GstBuffer *old_codec_data = NULL;
+
+  GST_DEBUG_OBJECT (pad, "%" GST_PTR_FORMAT, caps);
 
   old_codec = pad->codec;
   old_rate = pad->rate;
@@ -676,6 +708,7 @@ gst_flv_mux_audio_pad_setcaps (GstFlvMuxPad * pad, GstCaps * caps)
   if (ret && mux->streamable && mux->state != GST_FLV_MUX_STATE_HEADER) {
     if (old_codec != pad->codec || old_rate != pad->rate ||
         old_width != pad->width || old_channels != pad->channels) {
+      GST_DEBUG_OBJECT (pad, "pad info changed");
       pad->info_changed = TRUE;
     }
 
@@ -684,16 +717,21 @@ gst_flv_mux_audio_pad_setcaps (GstFlvMuxPad * pad, GstCaps * caps)
 
       gst_buffer_map (old_codec_data, &map, GST_MAP_READ);
       if (map.size != gst_buffer_get_size (pad->codec_data) ||
-          gst_buffer_memcmp (pad->codec_data, 0, map.data, map.size))
+          gst_buffer_memcmp (pad->codec_data, 0, map.data, map.size)) {
+        GST_DEBUG_OBJECT (pad, "codec data changed");
         pad->info_changed = TRUE;
+      }
 
       gst_buffer_unmap (old_codec_data, &map);
     } else if (!old_codec_data && pad->codec_data) {
+      GST_DEBUG_OBJECT (pad, "codec data changed");
       pad->info_changed = TRUE;
     }
 
-    if (pad->info_changed)
+    if (pad->info_changed) {
       mux->state = GST_FLV_MUX_STATE_HEADER;
+      mux->new_metadata = TRUE;
+    }
   }
 
   if (old_codec_data)
@@ -1109,29 +1147,37 @@ gst_flv_mux_create_metadata (GstFlvMux * mux)
     tags_written++;
   }
 
-  _gst_buffer_new_and_alloc (2 + 15 + 1 + 2 + strlen (mux->metadatacreator),
-      &tmp, &data);
+  GString *tag_string = g_string_new (mux->metadatacreator);
+  g_string_replace (tag_string, "{VERSION}", PACKAGE_VERSION, 0);
+
+  _gst_buffer_new_and_alloc (2 + 15 + 1 + 2 + tag_string->len, &tmp, &data);
   data[0] = 0;                  /* 15 bytes name */
   data[1] = 15;
   memcpy (&data[2], "metadatacreator", 15);
   data[17] = 2;                 /* string */
-  data[18] = (strlen (mux->metadatacreator) >> 8) & 0xff;
-  data[19] = (strlen (mux->metadatacreator)) & 0xff;
-  memcpy (&data[20], mux->metadatacreator, strlen (mux->metadatacreator));
+  data[18] = (tag_string->len >> 8) & 0xff;
+  data[19] = tag_string->len & 0xff;
+  memcpy (&data[20], tag_string->str, tag_string->len);
   script_tag = gst_buffer_append (script_tag, tmp);
   tags_written++;
 
-  _gst_buffer_new_and_alloc (2 + 7 + 1 + 2 + strlen (mux->encoder),
-      &tmp, &data);
+  g_string_truncate (tag_string, 0);
+  g_string_append (tag_string, mux->encoder);
+  g_string_replace (tag_string, "{VERSION}", PACKAGE_VERSION, 0);
+
+  _gst_buffer_new_and_alloc (2 + 7 + 1 + 2 + tag_string->len, &tmp, &data);
   data[0] = 0;                  /* 7 bytes name */
   data[1] = 7;
   memcpy (&data[2], "encoder", 7);
   data[9] = 2;                  /* string */
-  data[10] = (strlen (mux->encoder) >> 8) & 0xff;
-  data[11] = (strlen (mux->encoder)) & 0xff;
-  memcpy (&data[12], mux->encoder, strlen (mux->encoder));
+  data[10] = (tag_string->len >> 8) & 0xff;
+  data[11] = tag_string->len & 0xff;
+  memcpy (&data[12], tag_string->str, tag_string->len);
   script_tag = gst_buffer_append (script_tag, tmp);
   tags_written++;
+
+  g_string_free (tag_string, TRUE);
+  tag_string = NULL;
 
   {
     time_t secs;
@@ -1237,7 +1283,7 @@ gst_flv_mux_buffer_to_tag_internal (GstFlvMux * mux, GstBuffer * buffer,
    * it expects timestamps to go forward not only inside one stream, but
    * also between the audio & video streams.
    */
-  if (dts < mux->last_dts) {
+  if (dts < mux->last_dts && mux->enforce_increasing_timestamps) {
     GST_WARNING_OBJECT (pad, "Got backwards dts! (%" GST_TIME_FORMAT
         " < %" GST_TIME_FORMAT ")", GST_TIME_ARGS (dts * GST_MSECOND),
         GST_TIME_ARGS (mux->last_dts * GST_MSECOND));
@@ -1583,7 +1629,7 @@ gst_flv_mux_write_header (GstFlvMux * mux)
     ret = gst_flv_mux_push (mux, metadata);
     if (ret != GST_FLOW_OK)
       goto failure_metadata;
-    mux->new_tags = FALSE;
+    mux->new_metadata = FALSE;
   }
   if (video_codec_data != NULL) {
     ret = gst_flv_mux_push (mux, video_codec_data);
@@ -1638,7 +1684,7 @@ gst_flv_mux_update_index (GstFlvMux * mux, GstBuffer * buffer,
     return;
 
   if (GST_BUFFER_PTS_IS_VALID (buffer)) {
-    GstFlvMuxIndexEntry *entry = g_slice_new (GstFlvMuxIndexEntry);
+    GstFlvMuxIndexEntry *entry = g_new (GstFlvMuxIndexEntry, 1);
     GstClockTime pts =
         gst_flv_mux_segment_to_running_time (&GST_AGGREGATOR_PAD
         (pad)->segment, GST_BUFFER_PTS (buffer));
@@ -2040,11 +2086,11 @@ gst_flv_mux_aggregate (GstAggregator * aggregator, gboolean timeout)
     }
   }
 
-  if (mux->new_tags && mux->streamable) {
+  if (mux->new_metadata && mux->streamable) {
     GstBuffer *buf = gst_flv_mux_create_metadata (mux);
     if (buf)
       gst_flv_mux_push (mux, buf);
-    mux->new_tags = FALSE;
+    mux->new_metadata = FALSE;
   }
 
   if (best) {
@@ -2115,6 +2161,9 @@ gst_flv_mux_get_property (GObject * object,
     case PROP_SKIP_BACKWARDS_STREAMS:
       g_value_set_boolean (value, mux->skip_backwards_streams);
       break;
+    case PROP_ENFORCE_INCREASING_TIMESTAMPS:
+      g_value_set_boolean (value, mux->enforce_increasing_timestamps);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -2157,6 +2206,9 @@ gst_flv_mux_set_property (GObject * object,
       break;
     case PROP_SKIP_BACKWARDS_STREAMS:
       mux->skip_backwards_streams = g_value_get_boolean (value);
+      break;
+    case PROP_ENFORCE_INCREASING_TIMESTAMPS:
+      mux->enforce_increasing_timestamps = g_value_get_boolean (value);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
