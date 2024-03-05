@@ -234,20 +234,20 @@ gst_jpeg_dec_term_source (j_decompress_ptr cinfo)
 }
 
 METHODDEF (void)
-    gst_jpeg_dec_my_output_message (j_common_ptr cinfo)
+gst_jpeg_dec_my_output_message (j_common_ptr cinfo)
 {
   return;                       /* do nothing */
 }
 
 METHODDEF (void)
-    gst_jpeg_dec_my_emit_message (j_common_ptr cinfo, int msg_level)
+gst_jpeg_dec_my_emit_message (j_common_ptr cinfo, int msg_level)
 {
   /* GST_LOG_OBJECT (CINFO_GET_JPEGDEC (&cinfo), "msg_level=%d", msg_level); */
   return;
 }
 
 METHODDEF (void)
-    gst_jpeg_dec_my_error_exit (j_common_ptr cinfo)
+gst_jpeg_dec_my_error_exit (j_common_ptr cinfo)
 {
   struct GstJpegDecErrorMgr *err_mgr = (struct GstJpegDecErrorMgr *) cinfo->err;
 
@@ -1301,7 +1301,7 @@ gst_jpeg_dec_decode (GstJpegDec * dec, GstVideoFrame * vframe, guint width,
     GST_LOG_OBJECT (dec, "decompressing (required scanline buffer height = %u)",
         dec->cinfo.rec_outbuf_height);
 
-    /* For some widths jpeglib requires more horizontal padding than I420 
+    /* For some widths jpeglib requires more horizontal padding than I420
      * provides. In those cases we need to decode into separate buffers and then
      * copy over the data into our final picture buffer, otherwise jpeglib might
      * write over the end of a line into the beginning of the next line,
@@ -1406,7 +1406,8 @@ gst_jpeg_dec_handle_frame (GstVideoDecoder * bdec, GstVideoCodecFrame * frame)
   /* is it interlaced MJPEG? (we really don't want to scan the jpeg data
    * to see if there are two SOF markers in the packet to detect this) */
   if (gst_video_decoder_get_packetized (bdec) &&
-      dec->input_state && height > DCTSIZE &&
+      dec->input_state &&
+      dec->input_state->info.height != height && height > DCTSIZE &&
       dec->input_state->info.height > (2 * (height - DCTSIZE)) &&
       dec->input_state->info.height <= (height * 2)
       && dec->input_state->info.width == width) {

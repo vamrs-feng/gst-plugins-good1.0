@@ -1,7 +1,7 @@
 sources = [
   'gstplugin.cc',
   'gstqtelement.cc',
-  'gstqsgtexture.cc',
+  'gstqsgmaterial.cc',
   'gstqtglutility.cc',
   'gstqtoverlay.cc',
   'gstqtsink.cc',
@@ -14,7 +14,6 @@ sources = [
 moc_headers = [
   'qtitem.h',
   'qtwindow.h',
-  'gstqsgtexture.h',
   'qtglrenderer.h',
 ]
 
@@ -134,9 +133,6 @@ if host_system == 'android'
       optional_deps += [qt5androidextras, glesv2_dep]
       qt_defines += ['-DHAVE_QT_ANDROID']
       have_qt_windowing = true
-      # Needed for C++11 support in Cerbero. People building with Android
-      # in some other way need to add the necessary bits themselves.
-      optional_deps += dependency('gnustl', required : false)
     endif
   endif
 endif
@@ -183,7 +179,7 @@ if host_system == 'ios'
   endif
 endif
 
-if qt5_option.require(have_qt_windowing).allowed()
+if qt5_option.require(have_qt_windowing, error_message: 'No windowing, enable one of the qt-* windowing options').allowed()
   # rpath is needed to be able to load the plugin on macOS inside the devenv
   qmlgl_kwargs = {}
   if host_system == 'darwin'

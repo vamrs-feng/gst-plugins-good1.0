@@ -76,6 +76,8 @@ typedef gboolean  (*GstV4l2UpdateFpsFunction) (GstV4l2Object * v4l2object);
  * 'unsigned long' for the 2nd parameter */
 #ifdef __ANDROID__
 typedef unsigned ioctl_req_t;
+#elif defined(__linux__) && !defined(__GLIBC__) /* musl/linux */
+typedef int ioctl_req_t;
 #else
 typedef gulong ioctl_req_t;
 #endif
@@ -226,6 +228,9 @@ struct _GstV4l2Object {
    * on slow USB firmwares. When this is set, gst_v4l2_set_format() will modify
    * the caps to reflect what was negotiated during fixation */
   gboolean skip_try_fmt_probes;
+  
+  guint max_width;
+  guint max_height;
 };
 
 struct _GstV4l2ObjectClassHelper {

@@ -759,7 +759,7 @@ gst_matroska_read_common_parse_skip (GstMatroskaReadCommon * common,
   } else if (id == GST_EBML_ID_CRC32) {
     GST_DEBUG_OBJECT (common->sinkpad, "Skipping EBML CRC32 element");
   } else {
-    GST_WARNING_OBJECT (common->sinkpad,
+    GST_FIXME_OBJECT (common->sinkpad,
         "Unknown %s subelement 0x%x - ignoring", parent_name, id);
   }
 
@@ -2759,7 +2759,7 @@ gst_matroska_read_common_parse_metadata (GstMatroskaReadCommon * common,
   }
 
   common->tags_parsed =
-      g_list_prepend (common->tags_parsed, g_slice_new (guint64));
+      g_list_prepend (common->tags_parsed, g_new (guint64, 1));
   *((guint64 *) common->tags_parsed->data) = curpos;
   /* fall-through */
 
@@ -3281,7 +3281,7 @@ gst_matroska_read_common_read_track_encodings (GstMatroskaReadCommon * common,
 void
 gst_matroska_read_common_free_parsed_el (gpointer mem, gpointer user_data)
 {
-  g_slice_free (guint64, mem);
+  g_free (mem);
 }
 
 void

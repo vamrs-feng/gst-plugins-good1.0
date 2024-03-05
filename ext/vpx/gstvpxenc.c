@@ -1743,10 +1743,10 @@ gst_vpx_enc_set_format (GstVideoEncoder * video_encoder,
     vpx_codec_destroy (&encoder->encoder);
     encoder->inited = FALSE;
     encoder->multipass_cache_idx++;
-    encoder->last_pts = GST_CLOCK_TIME_NONE;
-    encoder->last_input_duration = GST_CLOCK_TIME_NONE;
   } else {
     g_mutex_lock (&encoder->encoder_lock);
+    encoder->last_pts = GST_CLOCK_TIME_NONE;
+    encoder->last_input_duration = GST_CLOCK_TIME_NONE;
   }
 
   encoder->cfg.g_bit_depth = encoder->cfg.g_input_bit_depth = info->finfo->bits;
@@ -2225,7 +2225,7 @@ gst_vpx_enc_finish (GstVideoEncoder * video_encoder)
 static vpx_image_t *
 gst_vpx_enc_buffer_to_image (GstVPXEnc * enc, GstVideoFrame * frame)
 {
-  vpx_image_t *image = g_slice_new (vpx_image_t);
+  vpx_image_t *image = g_new (vpx_image_t, 1);
 
   memcpy (image, &enc->image, sizeof (*image));
 

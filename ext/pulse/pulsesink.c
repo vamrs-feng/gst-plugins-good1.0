@@ -178,9 +178,9 @@ struct _GstPulseRingBuffer
   gint64 m_offset;
   gint64 m_lastoffset;
 
-  gboolean corked:1;
-  gboolean in_commit:1;
-  gboolean paused:1;
+  gboolean corked;
+  gboolean in_commit;
+  gboolean paused;
 };
 struct _GstPulseRingBufferClass
 {
@@ -371,7 +371,7 @@ gst_pulsering_destroy_context (GstPulseRingBuffer * pbuf)
         g_hash_table_remove (gst_pulse_shared_contexts, pbuf->context_name);
 
         pa_context_unref (pctx->context);
-        g_slice_free (GstPulseContext, pctx);
+        g_free (pctx);
       }
     }
     g_free (pbuf->context_name);
@@ -528,7 +528,7 @@ gst_pulseringbuffer_open_device (GstAudioRingBuffer * buf)
 
   pctx = g_hash_table_lookup (gst_pulse_shared_contexts, pbuf->context_name);
   if (pctx == NULL) {
-    pctx = g_slice_new0 (GstPulseContext);
+    pctx = g_new0 (GstPulseContext, 1);
 
     /* get the mainloop api and create a context */
     GST_INFO_OBJECT (psink, "new context with name %s, pbuf=%p, pctx=%p",
@@ -608,7 +608,7 @@ create_failed:
   {
     GST_ELEMENT_ERROR (psink, RESOURCE, FAILED,
         ("Failed to create context"), (NULL));
-    g_slice_free (GstPulseContext, pctx);
+    g_free (pctx);
     goto unlock_and_fail;
   }
 connect_failed:
@@ -1567,7 +1567,7 @@ gst_pulseringbuffer_commit (GstAudioRingBuffer * buf, guint64 * sample,
           goto fake_done;
         }
 
-        if (pbuf->m_writable == (size_t) - 1)
+        if (pbuf->m_writable == (size_t) -1)
           goto writable_size_failed;
 
         pbuf->m_writable /= bpf;
