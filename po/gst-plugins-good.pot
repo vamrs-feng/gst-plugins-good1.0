@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: gst-plugins-good-1.24.0\n"
+"Project-Id-Version: gst-plugins-good-1.24.1\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-03-04 23:52+0000\n"
+"POT-Creation-Date: 2024-03-21 21:51+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -100,7 +100,7 @@ msgid "This file contains no playable streams."
 msgstr ""
 
 #: gst/isomp4/qtdemux.c:559 gst/isomp4/qtdemux.c:7978 gst/isomp4/qtdemux.c:8047
-#: gst/isomp4/qtdemux.c:8353 gst/isomp4/qtdemux.c:9743
+#: gst/isomp4/qtdemux.c:8353 gst/isomp4/qtdemux.c:9738
 msgid "This file is invalid and cannot be played."
 msgstr ""
 
@@ -109,9 +109,9 @@ msgid "Cannot play stream because it is encrypted with PlayReady DRM."
 msgstr ""
 
 #: gst/isomp4/qtdemux.c:4721 gst/isomp4/qtdemux.c:9130
-#: gst/isomp4/qtdemux.c:9137 gst/isomp4/qtdemux.c:10445
-#: gst/isomp4/qtdemux.c:10887 gst/isomp4/qtdemux.c:10894
-#: gst/isomp4/qtdemux.c:14169
+#: gst/isomp4/qtdemux.c:9137 gst/isomp4/qtdemux.c:10440
+#: gst/isomp4/qtdemux.c:10882 gst/isomp4/qtdemux.c:10889
+#: gst/isomp4/qtdemux.c:14164
 msgid "This file is corrupt and cannot be played."
 msgstr ""
 
@@ -131,17 +131,17 @@ msgstr ""
 msgid "This file is incomplete and cannot be played."
 msgstr ""
 
-#: gst/isomp4/qtdemux.c:12028
+#: gst/isomp4/qtdemux.c:12023
 msgid "The video in this file might not play correctly."
 msgstr ""
 
-#: gst/rtsp/gstrtspsrc.c:7989
+#: gst/rtsp/gstrtspsrc.c:7996
 msgid ""
 "No supported stream was found. You might need to install a GStreamer RTSP "
 "extension plugin for Real media streams."
 msgstr ""
 
-#: gst/rtsp/gstrtspsrc.c:7994
+#: gst/rtsp/gstrtspsrc.c:8001
 msgid ""
 "No supported stream was found. You might need to allow more transport "
 "protocols or may otherwise be missing the right GStreamer RTSP extension "
