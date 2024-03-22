@@ -1279,9 +1279,9 @@ gst_rtspsrc_class_init (GstRTSPSrcClass * klass)
    */
   gst_rtspsrc_signals[SIGNAL_PUSH_BACKCHANNEL_SAMPLE] =
       g_signal_new ("push-backchannel-sample", G_TYPE_FROM_CLASS (klass),
-      G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION | G_SIGNAL_DEPRECATED,
-      G_STRUCT_OFFSET (GstRTSPSrcClass, push_backchannel_sample), NULL, NULL,
-      NULL, GST_TYPE_FLOW_RETURN, 2, G_TYPE_UINT, GST_TYPE_SAMPLE);
+      G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION, G_STRUCT_OFFSET (GstRTSPSrcClass,
+          push_backchannel_sample), NULL, NULL, NULL,
+      GST_TYPE_FLOW_RETURN, 2, G_TYPE_UINT, GST_TYPE_SAMPLE);
 
   /**
    * GstRTSPSrc::get-parameter:
@@ -4404,7 +4404,13 @@ gst_rtspsrc_stream_configure_tcp (GstRTSPSrc * src, GstRTSPStream * stream,
     /* create a new pad we will use to stream to */
     name = g_strdup_printf ("stream_%u", stream->id);
     template = gst_static_pad_template_get (&rtptemplate);
-    stream->channelpad[0] = gst_pad_new_from_template (template, name);
+    pad0 = gst_pad_new_from_template (template, name);
+    stream->channelpad[0] = pad0;
+
+    gst_pad_set_event_function (pad0, gst_rtspsrc_handle_internal_src_event);
+    gst_pad_set_query_function (pad0, gst_rtspsrc_handle_internal_src_query);
+    gst_pad_set_element_private (pad0, src);
+
     gst_object_unref (template);
     g_free (name);
 
@@ -7824,6 +7830,7 @@ gst_rtspsrc_setup_streams_start (GstRTSPSrc * src, gboolean async)
       case GST_RTSP_STS_NOT_FOUND:
       case GST_RTSP_STS_METHOD_NOT_VALID_IN_THIS_STATE:
       case GST_RTSP_STS_PARAMETER_NOT_UNDERSTOOD:
+      case GST_RTSP_STS_SERVICE_UNAVAILABLE:
         /* There are various non-compliant servers that don't require control
          * URLs that are not resolved correctly but instead are just appended.
          * See e.g.
@@ -8623,9 +8630,8 @@ close:
   }
 
   /* cleanup */
-  gst_rtspsrc_cleanup (src);
-
   src->state = GST_RTSP_STATE_INVALID;
+  gst_rtspsrc_cleanup (src);
 
   if (async)
     gst_rtspsrc_loop_end_cmd (src, CMD_CLOSE, res);
@@ -9093,12 +9099,6 @@ restart:
 
     gst_rtsp_message_unset (&request);
 
-    /* parse RTP npt field. This is the current position in the stream (Normal
-     * Play Time) and should be put in the NEWSEGMENT position field. */
-    if (gst_rtsp_message_get_header (&response, GST_RTSP_HDR_RANGE, &hval,
-            0) == GST_RTSP_OK)
-      gst_rtspsrc_parse_range (src, hval, segment, FALSE);
-
     /* assume 1.0 rate now, overwrite when the SCALE or SPEED headers are present. */
     segment->rate = 1.0;
 
@@ -9111,6 +9111,12 @@ restart:
             &hval, 0) == GST_RTSP_OK) {
       segment->rate = gst_rtspsrc_get_float (hval);
     }
+
+    /* parse RTP npt field. This is the current position in the stream (Normal
+     * Play Time) and should be put in the NEWSEGMENT position field. */
+    if (gst_rtsp_message_get_header (&response, GST_RTSP_HDR_RANGE, &hval,
+            0) == GST_RTSP_OK)
+      gst_rtspsrc_parse_range (src, hval, segment, FALSE);
 
     /* parse the RTP-Info header field (if ANY) to get the base seqnum and timestamp
      * for the RTP packets. If this is not present, we assume all starts from 0...
@@ -9549,8 +9555,10 @@ gst_rtspsrc_stop (GstRTSPSrc * src)
 
   GST_DEBUG_OBJECT (src, "stopping");
 
-  /* also cancels pending task */
-  gst_rtspsrc_loop_send_cmd (src, CMD_WAIT, CMD_ALL);
+  /* If we've already started cleanup, we only need to stop the task */
+  if (src->state != GST_RTSP_STATE_INVALID)
+    /* also cancels pending task */
+    gst_rtspsrc_loop_send_cmd (src, CMD_WAIT, CMD_ALL);
 
   GST_OBJECT_LOCK (src);
   if ((task = src->task)) {
@@ -9573,8 +9581,10 @@ gst_rtspsrc_stop (GstRTSPSrc * src)
   }
   GST_OBJECT_UNLOCK (src);
 
-  /* ensure synchronously all is closed and clean */
-  gst_rtspsrc_close (src, FALSE, TRUE);
+  /* ensure synchronously all is closed and clean if we haven't started
+   * cleanup yet */
+  if (src->state != GST_RTSP_STATE_INVALID)
+    gst_rtspsrc_close (src, FALSE, TRUE);
 
   return TRUE;
 }
@@ -9647,8 +9657,10 @@ gst_rtspsrc_change_state (GstElement * element, GstStateChange transition)
       if (rtspsrc->is_live) {
         /* send pause request and keep the idle task around */
         gst_rtspsrc_loop_send_cmd (rtspsrc, CMD_PAUSE, CMD_LOOP);
+        ret = GST_STATE_CHANGE_NO_PREROLL;
+      } else {
+        ret = GST_STATE_CHANGE_SUCCESS;
       }
-      ret = GST_STATE_CHANGE_SUCCESS;
       break;
     case GST_STATE_CHANGE_PAUSED_TO_READY:
       rtspsrc->seek_seqnum = GST_SEQNUM_INVALID;

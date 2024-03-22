@@ -1,3 +1,175 @@
+=== release 1.24.1 ===
+
+2024-03-21 21:47:53 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* NEWS:
+	* RELEASE:
+	* gst-plugins-good.doap:
+	* meson.build:
+	  Release 1.24.1
+
+2024-03-18 15:07:28 +0100  Edward Hervey <edward@centricular.com>
+
+	* ext/adaptivedemux2/hls/gsthlsdemux-playlist-loader.c:
+	* ext/adaptivedemux2/hls/gsthlsdemux-preloader.c:
+	* ext/adaptivedemux2/hls/gsthlsdemux-stream.c:
+	* ext/adaptivedemux2/hls/gsthlsdemux-util.c:
+	* ext/adaptivedemux2/hls/gsthlsdemux.c:
+	* ext/adaptivedemux2/hls/m3u8.c:
+	  adaptivedemux2: Don't use g_str_equal on potentially NULL strings
+	  It is only meant to be used as a callback. The fallback macro uses strcmp which
+	  doesn't handle NULL strings gracefully. Instead use g_strcmp0
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6410>
+
+2024-03-18 15:02:29 +0100  Edward Hervey <edward@centricular.com>
+
+	* ext/adaptivedemux2/hls/gsthlsdemux.c:
+	  hlsdemux2: Avoid NULL pointer usage
+	  The pending/current variant are both NULL when the demuxer is resetted.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6410>
+
+2024-03-18 15:00:02 +0100  Edward Hervey <edward@centricular.com>
+
+	* ext/adaptivedemux2/gstadaptivedemuxutils.c:
+	  adaptivedemux2: Handle context going away
+	  This issue can happen when the scheduler loop was stopped (and context went
+	  away). We no longer want to push/pop main context threads.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6410>
+
+2024-03-18 14:57:43 +0100  Edward Hervey <edward@centricular.com>
+
+	* ext/adaptivedemux2/hls/gsthlsdemux-playlist-loader.c:
+	  hlsdemux2: Improve detection of playlist updates
+	  In the case we are not updating an existing playlist, we only want to reset the
+	  download error count if the URI we are downloading was not the previous one we
+	  were trying to load
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6410>
+
+2024-03-13 13:39:21 +0100  Alexander Slobodeniuk <aslobodeniuk@fluendo.com>
+
+	* gst/rtsp/gstrtspsrc.c:
+	  rtspsrc: remove 'deprecated' flag from the 'push-backchannel-sample' signal
+	  It seems that it was added by accident when copying from push-backchannel-buffer
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6363>
+
+2024-03-11 10:39:27 +0200  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/mpg123/gstmpg123audiodec.c:
+	  mpg123audiodec: Correctly handle the case of clipping all decoded samples
+	  Fixes https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/3365
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6357>
+
+2024-03-11 18:13:37 +0100  Piotr Brzeziński <piotr@centricular.com>
+
+	* gst/isomp4/qtdemux.c:
+	  qtdemux: Fix wrapping temporary memory in buffers
+	  That memory can disappear at any moment, doesn't cost much to just copy those few bytes.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6339>
+
+2024-01-31 00:32:22 +0530  Nirbheek Chauhan <nirbheek@centricular.com>
+
+	* gst/rtsp/gstrtspsrc.c:
+	  rtspsrc: Don't invoke close when stopping if we've started cleanup
+	  When we're doing a state change from PLAYING to NULL, first we invoke
+	  gst_rtspsrc_loop_send_cmd_and_wait (..., CMD_CLOSE, ...) during
+	  PAUSED_TO_READY which will schedule a TEARDOWN to happen async on the
+	  task thread.
+	  The task thread will call gst_rtspsrc_close(), which will send the
+	  TEARDOWN and once it's complete, it will call gst_rtspsrc_cleanup()
+	  without taking any locks, which frees src->streams.
+	  At the same time however, the state change in the app thread will
+	  progress further and in READY_TO_NULL it will call gst_rtspsrc_stop()
+	  which calls gst_rtspsrc_close() a second time, which accesses
+	  src->streams (without a lock again), which leads to simultaneous
+	  access of src->streams, and a segfault.
+	  So the state change and the cleanup are racing, but they almost always
+	  complete sequentially. Either the cleanup sets src->streams to NULL or
+	  _stop() completes first. Very rarely, _stop() can start while
+	  src->streams is being freed in a for loop. That causes the segfault.
+	  This is unlocked access is unfixable with more locking, it just leads
+	  to deadlocks. This pattern has been observed in rtspsrc a lot: state
+	  changes and cleanup in the element are unfixably racy, and that
+	  foundational issue is being addressed separately via a rewrite.
+	  The bandage fix here is to prevent gst_rtspsrc_stop() from accessing
+	  src->streams after it has already been freed by setting src->state to
+	  INVALID.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6330>
+
+2024-03-07 16:17:41 +0100  Michael Tretter <m.tretter@pengutronix.de>
+
+	* meson_options.txt:
+	  meson: Fix description in qt options
+	  The qt-x11 description contains a copy/paste error from the qt-wayland option.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6313>
+
+2024-02-16 18:11:07 +0100  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* gst/rtp/gstrtpgstpay.c:
+	  rtpgstpay: flush on EOS
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6298>
+
+2023-08-11 13:06:24 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* gst/rtp/gstrtpgstpay.c:
+	* gst/rtp/gstrtpgstpay.h:
+	  rtpgstpay: Delay pushing of event packets until the next buffer
+	  And also re-timestamp them with the current buffer's PTS.
+	  Not doing so keeps the timestamps of event packets as
+	  GST_CLOCK_TIME_NONE or the timestamp of the previous buffer, both of
+	  which are bogus.
+	  Making sure that (especially) the first packet has a valid timestamp
+	  allows putting e.g. the NTP timestamp RTP header extension on it.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6298>
+
+2024-02-26 19:17:27 -0600  Elizabeth Figura <zfigura@codeweavers.com>
+
+	* gst/isomp4/qtdemux.c:
+	  qtdemux: Do not set channel-mask to zero
+	  Leave it uninitialized, so that the downstream decoder will initialize it appropriately. Setting it to zero is wrong.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6296>
+
+2024-03-01 02:44:57 +1100  Jan Schmidt <jan@centricular.com>
+
+	* gst/rtsp/gstrtspsrc.c:
+	  rtspsrc: Parse Speed/Scale before Range in responses
+	  Parse the speed and scale in the server's response
+	  *before* the range, so that the range start/stop
+	  are swapped (or not swapped) correctly based
+	  on the server's actual chosen values. Otherwise,
+	  the old rate from the segment is used - what the
+	  last seek asked for, but not necessarily what
+	  the server chooses.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6295>
+
+2024-02-29 12:06:25 +1100  Jan Schmidt <jan@centricular.com>
+
+	* gst/rtsp/gstrtspsrc.c:
+	  rtspsrc: Handle queries and events with no manager
+	  When doing direct output with no session manager, we still
+	  want to respond to queries and events from downstream, so
+	  install the handlers
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6295>
+
+2024-02-29 11:14:47 +1100  Jan Schmidt <jan@centricular.com>
+
+	* gst/rtsp/gstrtspsrc.c:
+	  rtspsrc: return NO_PREROLL on PLAYING->PAUSED too
+	  When transitioning back to PAUSED and rtspsrc is live, return
+	  NO_PREROLL so the pipeline knows to skip preroll here too.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6295>
+
+2024-02-24 11:07:26 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* gst/rtsp/gstrtspsrc.c:
+	  rtspsrc: Consider 503 Service Not Available when handling broken control urls
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6267>
+
+2024-03-05 13:45:27 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* meson.build:
+	  Back to development
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6264>
+
 === release 1.24.0 ===
 
 2024-03-04 23:51:42 +0000  Tim-Philipp Müller <tim@centricular.com>
