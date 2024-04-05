@@ -172,7 +172,9 @@ Replaces: gstreamer1.0-plugins-bad (<< 1.15.1),
           gstreamer1.0-pulseaudio (<< 1.18.0)
 Breaks: gstreamer1.0-plugins-bad (<< 1.15.1),
         gstreamer1.0-plugins-ugly (<< 1.24),
-        gstreamer1.0-pulseaudio (<< 1.18.0)
+        gstreamer1.0-pulseaudio (<< 1.18.0),
+        libv4l-0 (<< 1.26.1-4~),
+        libv4lconvert0 (<< 1.26.1-4~)
 XB-GStreamer-Version: ${gstreamer:Version}
 XB-GStreamer-Elements: ${gstreamer:Elements}
 XB-GStreamer-URI-Sources: ${gstreamer:URISources}
