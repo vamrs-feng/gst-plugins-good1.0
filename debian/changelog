@@ -1,3 +1,11 @@
+gst-plugins-good1.0 (1.24.1-2) unstable; urgency=medium
+
+  * Team upload
+  * Add Breaks for pre-t64 versions of libv4l-0 and libv4lconvert0
+    to help apt calculate upgrades. Thanks to Julian Klode.
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Fri, 05 Apr 2024 12:07:12 -0400
+
 gst-plugins-good1.0 (1.24.1-1) unstable; urgency=medium
 
   * d/control: drop dependency to libsoup2.4-1
