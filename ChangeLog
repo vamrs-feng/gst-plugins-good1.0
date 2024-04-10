@@ -1,3 +1,202 @@
+=== release 1.24.2 ===
+
+2024-04-09 21:48:55 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* NEWS:
+	* RELEASE:
+	* gst-plugins-good.doap:
+	* meson.build:
+	  Release 1.24.2
+
+2024-04-08 13:04:31 +0100  Philippe Normand <philn@igalia.com>
+
+	* ext/vpx/gstvpxenc.c:
+	  vpxenc: Include vpx error details in errors and warnings
+	  The vpx_codec_t err_detail string usually provides additional context about the
+	  error, so include it in GStreamer warnings and errors, when it's not NULL.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6584>
+
+2024-04-08 19:53:06 +0200  Jochen Henneberg <jochen@centricular.com>
+
+	  qt6: Fixes for dummy texture
+	  * RED_OR_ALPHA8 will map value to alpha for OpenGL, use R8 to avoid
+	  2nd shader
+	  * Determine texel size for proper texture memory preparation
+	  * QByteArray::fromRawData() does shallow copy and thus leads to use of
+	  corrupted memory
+	  * Make sure RGBA dummy texture is fully opaque
+	  * QRhiTexture::create() must be called to allocate texture resources
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6581>
+
+2024-04-06 02:28:44 +0200  Jochen Henneberg <jochen@centricular.com>
+
+	* ext/qt/gstqsgmaterial.cc:
+	* ext/qt/gstqsgmaterial.h:
+	  qt: Fixup for dummy textures
+	  * Initialize dummy texture Ids
+	  * Ensure YUV->RGB matrix set for dummy textures
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6581>
+
+2024-04-04 13:21:44 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* gst/rtpmanager/gstrtpbin.c:
+	  rtpbin: Don't re-use a variable for a completely different purpose temporarily
+	  During RTP-Info synchronization, clock_base was temporarily switched
+	  from the actual clock-base to the base RTP time and then back some lines
+	  later.
+	  Instead directly work with the base RTP time. The comment about using a
+	  signed variable for convenience doesn't make any sense because all
+	  calculations done with the value are unsigned.
+	  Similarly, rtp_clock_base was overridden with the rtp_delta when
+	  calculating it, which was fine because it is not used anymore
+	  afterwards. Instead, introduce a new variable `rtp_delta` to make this
+	  calculation clearer.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6575>
+
+2024-04-04 13:19:18 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* gst/rtpmanager/gstrtpbin.c:
+	  rtpbin: Convert clock-base to extended RTP timestamp correctly
+	  It's not in the same period as the current RTP base time but always in
+	  the very first period. This avoids using it again at a much later time.
+	  The code in question is only triggered with rtcp-sync=rtp-info.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6575>
+
+2024-04-04 13:11:54 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* gst/rtpmanager/gstrtpjitterbuffer.c:
+	  rtpjitterbuffer: Use an extended RTP timestamp for the clock-base
+	  It is compared to other extended RTP timestamps all over rtpjitterbuffer
+	  and since 4df3da3bab8 the initial extended RTP timestamp is not equal
+	  anymore to the plain RTP time.
+	  Continue passing a non-extended RTP timestamp via the `sync` signal for
+	  backwards compatibility. It will always be a timestamp inside the first
+	  extended timestamp period anyway.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6575>
+
+2024-03-26 13:33:56 +0200  Sebastian Dröge <sebastian@centricular.com>
+
+	* docs/gst_plugins_cache.json:
+	* gst/rtpmanager/gstrtphdrext-ntp.c:
+	  rtphdrext-ntp: Fix typo of the RFC number in the element metadata
+	  Fixes https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/3417
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6537>
+
+2024-03-28 09:46:08 +0100  Robert Guziolowski <robert.guziolowski@gmail.com>
+
+	* ext/qt6/gstqsg6material.cc:
+	  qml6glsink: fix destruction of underlying texture
+	  One should not directly delete the QRhiTexture instance.
+	  Instead it should be marked as to be deleted once QRhi::endFrame()
+	  is called (see: https://doc.qt.io/qt-6/qrhiresource.html#deleteLater )
+	  Fixes: https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/3443
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6506>
+
+2024-04-02 21:30:50 +1100  Jan Schmidt <jan@centricular.com>
+
+	* gst/rtpmanager/rtpjitterbuffer.c:
+	  rtpjitterbuffer: Don't use estimated_dts to do default skew adjustment
+	  When the buffer DTS is estimated based on arrival time at the
+	  jitterbuffer (rather than provided on the incoming buffer itself),
+	  it shouldn't be used for skew adjustment. The typical case is
+	  packets being deinterleaved from a tunnelled TCP/HTTP RTSP stream,
+	  and the arrival times at the jitter buffer are not well enough
+	  correlated to usefully do skew adjustments.
+	  This restores the original intended behaviour for the 'estimated dts'
+	  path, that was broken years ago during other jitterbuffer refactoring.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6561>
+
+2024-04-06 12:26:39 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/flac/meson.build:
+	  flac: Add wrap file and add fallback for it to the flac plugin
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6560>
+
+2024-02-28 11:28:23 +0800  Tim Blechmann <tim@klingt.org>
+
+	* sys/v4l2/gstv4l2object.c:
+	  v4l2: enforce a pixel aspect ratio of 1/1 if no data are available
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6559>
+
+2024-04-05 14:21:38 +0200  Philipp Zabel <p.zabel@pengutronix.de>
+
+	* sys/v4l2/gstv4l2allocator.c:
+	  v4l2: allocator: Fix unref log/trace on memory release
+	  Use gst_object_unref() instead of g_object_unref() in
+	  gst_v4l2_allocator_release(), so refcounting log and
+	  tracer get to know about this unref.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6556>
+
+2024-03-29 11:14:54 +0900  Elliot Chen <elliot.chen@nxp.com>
+
+	* sys/v4l2/gstv4l2object.c:
+	  v4l2: fix error in calculating padding bottom for tile format
+	  This is a regression while porting to arbitrary tile dimensions
+	  introduced in !3424.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6554>
+
+2024-04-01 14:41:21 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* gst/audioparsers/gstwavpackparse.c:
+	  wavpackparse: Use an unsigned integer for the block size calculations
+	  It's never negative.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6541>
+
+2024-04-01 14:36:19 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* gst/audioparsers/gstwavpackparse.c:
+	  wavpackparse: Fix potential integer overflow on ID_ODD_SIZE blocks
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6541>
+
+2024-04-01 14:33:05 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* gst/audioparsers/gstwavpackparse.c:
+	* gst/audioparsers/gstwavpackparse.h:
+	  wavpackparse: Explicitly handle ID_WVX_NEW_BITSTREAM
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6541>
+
+2024-03-28 19:49:46 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* tests/check/elements/rtpred.c:
+	  tests: rtpred: fix out-of-bound writes
+	  Don't write more data to the buffer than we allocated
+	  space for.
+	  Fixes #3312
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6478>
+
+2024-03-27 15:21:56 +0900  Haihua Hu <jared.hu@nxp.com>
+
+	* sys/v4l2/gstv4l2src.c:
+	  v4l2src: need maintain the caps order in caps compare when fixate
+	  if the calculated "distance" of caps A and B from the preference are
+	  equal, need to keep the original order instead of swap them
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6473>
+
+2024-03-26 23:53:30 +1100  Jan Schmidt <jan@centricular.com>
+
+	* gst/rtp/gstrtpmp4adepay.c:
+	  rtpmp4adepay: Set duration on outgoing buffers
+	  If we can calculate timestamps for buffers, then set the duration
+	  on outgoing buffers based on the number of samples depayloaded.
+	  This can fix the muxing to mp4, where otherwise the last packet
+	  in a muxed file will have 0 duration in the mp4 file.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6456>
+
+2024-03-21 18:07:42 +0900  Hou Qi <qi.hou@nxp.com>
+
+	* sys/v4l2/gstv4l2object.c:
+	  v4l2: Also set max_width/max_height if enum framesize fail
+	  Some driver doesn't implement enum_framesize. The maximum supported
+	  size can be got by trying format with a very large size. Also need
+	  to set max_width/max_height for this case, otherwise default encoded
+	  buffer size 256kB is too small.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6430>
+
+2024-03-22 01:38:06 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* meson.build:
+	  Back to development
+
 === release 1.24.1 ===
 
 2024-03-21 21:47:53 +0100  Tim-Philipp Müller <tim@centricular.com>
