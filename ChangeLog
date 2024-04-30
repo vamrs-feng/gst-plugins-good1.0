@@ -1,3 +1,175 @@
+=== release 1.24.3 ===
+
+2024-04-30 00:15:23 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* NEWS:
+	* RELEASE:
+	* gst-plugins-good.doap:
+	* meson.build:
+	  Release 1.24.3
+
+2024-04-22 10:40:13 -0400  William Wedler <william.wedler@videoray.com>
+
+	* ext/qt/qtitem.cc:
+	  fix: qmlglsink: video content resizes to new item size
+	  Mark geometry dirty when the item rectangle changes in the
+	  QtGLVideoItem::updatePaintNode method. This allows changes in the bounding
+	  rectangle to be applied to the scene graph geometry node.
+	  Fixes #3493
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6759>
+
+2024-04-22 10:35:18 -0400  William Wedler <william.wedler@videoray.com>
+
+	* ext/qt6/qt6glitem.cc:
+	  fix: qml6glsink: video content resizes to new item size
+	  Mark geometry dirty when the item rectangle changes in the
+	  QtGLVideoItem::updatePaintNode method. This allows changes in the bounding
+	  rectangle to be applied to the scene graph geometry node.
+	  Fixes #3493
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6759>
+
+2024-02-19 21:49:21 +0800  Tim Blechmann <tim@klingt.org>
+
+	* sys/v4l2/v4l2_calls.c:
+	  v4l2: silence valgrind warning
+	  Valgrind complains about uninitialized memory used in an ioctl
+	  Syscall param ioctl(VKI_V4L2_G_TUNER).reserved points to uninitialised byte(s)
+	  at 0x719294F: ioctl (ioctl.c:36)
+	  by 0x3126A817: gst_v4l2_fill_lists (v4l2_calls.c:185)
+	  by 0x3126A817: gst_v4l2_open (v4l2_calls.c:589)
+	  by 0x3123F1C2: gst_v4l2_device_provider_probe_device (gstv4l2deviceprovider.c:122)
+	  by 0x3123F648: gst_v4l2_device_provider_device_from_udev (gstv4l2deviceprovider.c:301)
+	  by 0x3123F998: provider_thread (gstv4l2deviceprovider.c:395)
+	  by 0x796FA50: ??? (in /usr/lib/x86_64-linux-gnu/libglib-2.0.so.0.7200.4)
+	  by 0x710CAC2: start_thread (pthread_create.c:442)
+	  by 0x719DA03: clone (clone.S:100)
+	  Address 0x44008a34 is on thread 11's stack
+	  in frame #1, created by gst_v4l2_open (v4l2_calls.c:524)
+	  Uninitialised value was created by a stack allocation
+	  at 0x3126A024: gst_v4l2_open (v4l2_calls.c:524)
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6761>
+
+2024-04-26 09:45:22 +0800  Tim Blechmann <tim@klingt.org>
+
+	* ext/soup/gstsouphttpsrc.c:
+	  soup: fix thread name
+	  thread names should be below 16char, otherwise they won't be shown on
+	  linux.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6739>
+
+2024-04-19 11:31:04 +0200  Edward Hervey <edward@centricular.com>
+
+	* ext/adaptivedemux2/gstadaptivedemux.c:
+	  adaptivedemux2: Answer GST_QUERY_CAPS
+	  If we have a generic caps, we can answer the query.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6716>
+
+2024-04-19 11:29:25 +0200  Edward Hervey <edward@centricular.com>
+
+	* ext/adaptivedemux2/gstadaptivedemux.c:
+	  adaptivedemux2: Refactor output slot creation
+	  Set as much information as possible on the slot (including the associated
+	  track) *before* the associated source pad is added to the element.
+	  We need this so that incoming event/queries can be replied to if they are
+	  received when adding the pad
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6716>
+
+2024-04-05 17:30:01 +0200  Philipp Zabel <p.zabel@pengutronix.de>
+
+	* sys/v4l2/gstv4l2allocator.c:
+	  v4l2bufferpool: Ensure freshly created buffers are not marked as queued
+	  Otherwise, if we run in to the copy case, this can cause these
+	  groups to stay around with queued flag set, but never actually
+	  queued, until gst_v4l2_allocator_flush() is called, which then
+	  erroneously frees the associated memories, causing the release
+	  function to decrement the allocator refcount where it was never
+	  incremented, resulting in early allocator disposal, and either
+	  deadlock or use after free.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6685>
+
+2024-04-12 17:17:53 +0800  Qian Hu (胡骞) <qian.hu@mediatek.com>
+
+	* docs/gst_plugins_cache.json:
+	* sys/v4l2/gstv4l2object.c:
+	  v4l2: add multiplane y42b(yuv422m)
+	  for some jpg file, mediatek v4l2 jpeg decoder
+	  hardware produce multi plane YUV 4:2:2 data
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6657>
+
+2024-04-09 11:29:46 +0900  Hou Qi <qi.hou@nxp.com>
+
+	* sys/v4l2/gstv4l2bufferpool.c:
+	  v4l2bufferpool: queue back the buffer flagged LAST but empty
+	  Some decoder drivers need to wait enough capture buffers before
+	  starting to decode. But the dequeued buffer flag LAST but empty
+	  has no chance to queue back to driver, which makes decode hang
+	  after seek. So need to queue back such kind of buffer to driver.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6649>
+
+2024-04-05 14:09:18 +0200  Philipp Zabel <p.zabel@pengutronix.de>
+
+	* sys/v4l2/gstv4l2bufferpool.c:
+	  v4l2: bufferpool: Drop writable check on output pool process
+	  Output buffers don't have to be writable. Accepting read-only buffers
+	  from the V4L2 buffer pool allows upstream elements to write directly
+	  into the V4L2 buffers without triggering a CPU copy into a new buffer
+	  from the same V4L2 buffer pool every time.
+	  Tested with the vivid output device:
+	  GST_DEBUG=GST_PERFORMANCE:7 gst-launch-1.0 videotestsrc ! v4l2sink device=/dev/video5
+	  With this change, gst_v4l2_buffer_pool_dqbuf() must be allowed to not
+	  resize read-only memories of output buffers.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6648>
+
+2024-04-13 10:57:43 +0100  Philippe Normand <philn@igalia.com>
+
+	* ext/vpx/gstvpxcompat.h:
+	* ext/vpx/gstvpxdec.c:
+	  vpxdec: Include vpx error details in errors and warnings
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6636>
+
+2024-04-13 10:56:29 +0100  Philippe Normand <philn@igalia.com>
+
+	* ext/vpx/gstvp9enc.c:
+	  vp9enc: Include vpx error details in errors and warnings
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6636>
+
+2024-04-13 10:55:55 +0100  Philippe Normand <philn@igalia.com>
+
+	* ext/vpx/gstvpxcompat.h:
+	* ext/vpx/gstvpxenc.c:
+	  vpxenc: Rename GST_VPX_WARN to GST_VPX_ENC_WARN
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6636>
+
+2024-04-12 16:57:00 +0800  Qian Hu (胡骞) <qian.hu@mediatek.com>
+
+	* gst/isomp4/qtdemux.c:
+	  qtdemux: fix wrong full_range offset when parsing colr box
+	  use colr_data[18] >> 7 to get full range information, instead
+	  of colr_data[17] >> 7
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6634>
+
+2024-04-11 10:10:19 -0400  William Wedler <william.wedler@videoray.com>
+
+	* ext/qt6/qt6glitem.cc:
+	  fix: qml6glsink: Notify that the returned QSGNode node has changes
+	  Sets the QSGNode::DirtyMaterial bit when a new buffer is used for the material's texture
+	  Fixes: https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/3469
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6633>
+
+2024-04-07 19:39:58 +0900  Jimmy Ohn <yongjin.ohn@lge.com>
+
+	* ext/pulse/pulsedeviceprovider.c:
+	  pulsedeviceprovider: Add is_default_device_name function and missing lock
+	  Add is_default_device_name function to simplify compare device type
+	  name and fix the missing lock when accessing default_sink_name and
+	  default_source_name.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6599>
+
+2024-04-10 00:04:02 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* meson.build:
+	  Back to development after 1.24.2
+
 === release 1.24.2 ===
 
 2024-04-09 21:48:55 +0100  Tim-Philipp Müller <tim@centricular.com>
