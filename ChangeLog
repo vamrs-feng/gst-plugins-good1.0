@@ -1,3 +1,55 @@
+=== release 1.24.4 ===
+
+2024-05-29 13:44:50 +0300  Tim-Philipp Müller <tim@centricular.com>
+
+	* NEWS:
+	* RELEASE:
+	* gst-plugins-good.doap:
+	* meson.build:
+	  Release 1.24.4
+
+2024-05-21 17:49:33 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/gtk/gstgtkbasesink.c:
+	  gtk: Fail initialization of the sink if GTK4 is already initialized in the same process
+	  Initializing GTK3 and GTK4 in the same process does not work and is not
+	  supported.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6905>
+
+2024-05-21 17:49:42 +0200  Piotr Brzeziński <piotr@centricular.com>
+
+	* sys/osxaudio/gstosxcoreaudio.c:
+	* sys/osxaudio/gstosxcoreaudio.h:
+	* sys/osxaudio/gstosxcoreaudiocommon.h:
+	  osxaudio: Avoid using private APIs on iOS
+	  Turns out AudioConvertHostTimeToNanos and AudioGetCurrentHostTime are macOS-only APIs, which prevents apps using
+	  GStreamer on iOS from being accepted into App Store.
+	  This commit replaces those functions with a manual version of what they do - mach_absolute_time() for the current time,
+	  and data from mach_timebase_info() at the beginning to convert host timestamps to nanoseconds.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6899>
+
+2024-05-09 10:01:22 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* gst/level/gstlevel.c:
+	  level: Don't post a message on EOS without a valid audio info
+	  If EOS is received before caps, e.g. because of an error, then rate and
+	  number of channels would be 0 and some divisions by zero would happen.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6828>
+
+2024-05-05 18:29:39 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* tests/check/elements/qtdemux.c:
+	  qtdemux: Use `G_GUINT64_CONSTANT` when creating test caps
+	  Otherwise this fails on 32 bit platforms.
+	  Fixes https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/3521
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6806>
+
+2024-04-30 00:36:59 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* meson.build:
+	  Back to development after 1.24.3
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/6772>
+
 === release 1.24.3 ===
 
 2024-04-30 00:15:23 +0100  Tim-Philipp Müller <tim@centricular.com>
