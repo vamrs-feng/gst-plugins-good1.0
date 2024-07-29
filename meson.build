@@ -1,5 +1,5 @@
 project('gst-plugins-good', 'c',
-  version : '1.24.5',
+  version : '1.24.6',
   meson_version : '>= 1.1',
   default_options : [ 'warning_level=1',
                       'buildtype=debugoptimized' ])
@@ -214,7 +214,7 @@ cdata.set('SIZEOF_INT', cc.sizeof('int'))
 cdata.set('SIZEOF_LONG', cc.sizeof('long'))
 cdata.set('SIZEOF_SHORT', cc.sizeof('short'))
 cdata.set('SIZEOF_VOIDP', cc.sizeof('void*'))
-cdata.set('SIZEOF_OFF_T', cc.sizeof('off_t'))
+cdata.set('SIZEOF_OFF_T', cc.sizeof('off_t', prefix : '#include<sys/types.h>'))
 
 have_rtld_noload = cc.has_header_symbol('dlfcn.h', 'RTLD_NOLOAD')
 cdata.set('HAVE_RTLD_NOLOAD', have_rtld_noload)
