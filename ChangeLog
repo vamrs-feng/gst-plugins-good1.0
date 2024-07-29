@@ -1,3 +1,57 @@
+=== release 1.24.6 ===
+
+2024-07-29 16:41:37 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* NEWS:
+	* RELEASE:
+	* gst-plugins-good.doap:
+	* meson.build:
+	  Release 1.24.6
+
+2024-06-01 15:15:18 +0300  Piotr Brzeziński <piotr@centricular.com>
+
+	* sys/osxaudio/gstosxaudiodeviceprovider.c:
+	  macos: Listen for audio devices being added/removed
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7258>
+
+2024-06-12 23:25:52 +1000  Matthew Waters <matthew@centricular.com>
+
+	* ext/qt/gstqsgmaterial.cc:
+	  qml/glsink: also support GLES2 needing shader 'precision' directives
+	  Fixes: https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/3616
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7125>
+
+2024-07-23 15:32:22 +0200  Loïc Yhuel <loic.yhuel@softathome.com>
+
+	* meson.build:
+	  meson: fix SIZEOF_OFF_T when cross-compiling with Meson >= 1.3.0
+	  https://mesonbuild.com/Release-notes-for-1-3-0.html#clarify-of-implicitlyincluded-headers-in-clike-compiler-checks
+	  With only stddef.h, off_t is not defined, so when cross-compiling SIZEOF_OFF_T is -1.
+	  We now use sys/types.h which should define off_t.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7218>
+
+2024-07-01 10:00:42 +0800  Shengqi Yu <shengqi.yu@mediatek.com>
+
+	* sys/v4l2/gstv4l2object.c:
+	  v4l2object: use v4l2 reported width for padded_width when complex video formats
+	  Stride means bytes per line, and padded_width means pixels. Here,
+	  padded_width shoule be pix width reported by v4l2 instead of stride.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7122>
+
+2024-06-02 11:40:04 +0300  Jan Schmidt <jan@centricular.com>
+
+	* ext/adaptivedemux2/hls/m3u8.c:
+	  adaptivedemux: Fix handling closed caption streams
+	  Fix a typo "CLOSED_CAPTION" -> "CLOSED-CAPTION" and
+	  a broken if statement that always bailed out for
+	  closed captions
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7105>
+
+2024-06-20 13:02:19 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* meson.build:
+	  Back to development after 1.24.5
+
 === release 1.24.5 ===
 
 2024-06-20 12:54:15 +0100  Tim-Philipp Müller <tim@centricular.com>
