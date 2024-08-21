@@ -1,3 +1,130 @@
+=== release 1.24.7 ===
+
+2024-08-21 12:25:15 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* NEWS:
+	* RELEASE:
+	* gst-plugins-good.doap:
+	* meson.build:
+	  Release 1.24.7
+
+2024-07-22 19:28:13 +0800  Qian Hu (胡骞) <qian.hu@mediatek.com>
+
+	* sys/v4l2/gstv4l2object.c:
+	  v4l2object: handle unsupported hlg colorimetry gracefully
+	  This patch addresses the issue where GStreamer would throw an error when
+	  attempting to use bt2100-hlg colorimetry with V4L2, which is not
+	  supported by the current V4L2 kernel. When bt2100-hlg colorimetry is set
+	  from caps, the check for transfer (GST_VIDEO_TRANSFER_ARIB_STD_B67) is
+	  bypassed.
+	  The main improvement is to avoid checking the transfer value in
+	  gst_v4l2_video_colorimetry_matches when it is
+	  GST_VIDEO_TRANSFER_ARIB_STD_B67. This is because the transfer value in
+	  the cinfo parameter comes from gst_v4l2_object_get_colorspace, which
+	  converts the transfer to another value, causing a mismatch.
+	  Since the kernel does not support GST_VIDEO_TRANSFER_ARIB_STD_B67,
+	  gst_v4l2_object_get_colorspace cannot map it correctly from V4L2 to
+	  GStreamer. Therefore, we ignore this check to prevent errors.
+	  changes:
+	  - Added a condition in gst_v4l2_video_colorimetry_matches to bypass the
+	  transfer check when the transfer is GST_VIDEO_TRANSFER_ARIB_STD_B67.
+	  - Ensured that the pipeline does not throw errors due to unsupported
+	  bt2100-hlg colorimetry in V4L2.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7369>
+
+2024-07-03 16:03:47 +0200  Mathieu Duponchelle <mathieu@centricular.com>
+
+	* docs/gst_plugins_cache.json:
+	* gst/rtsp/gstrtspsrc.c:
+	* gst/rtsp/gstrtspsrc.h:
+	  rtspsrc: expose property for forcing usage of non-compliant URLs
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7346>
+
+2024-08-07 15:56:08 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* ext/qt6/qt6glwindow.cc:
+	  qt6glwindow: Fallback to GL_RGB on CopyTexImage2D error
+	  With GLES 2.0 we are forced to use CopyTextImage2D which requires
+	  passing an internal format. With QT6 eglfs, we need to pass GL_RGB
+	  instead, probably because of how the texture has been created. As its
+	  hard to guess, simply fallback to GL_RGB on failure. This fixes usage
+	  or qml6glsrc with eglfs backend, without loosing support for
+	  semi-transparent window on other platforms.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7345>
+
+2024-08-01 11:21:09 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* ext/qt6/qt6glwindow.cc:
+	  qmlgl6src: Fix crash when use-default-fbo is false
+	  When that property is set to its default qmlgl6src element simply crash
+	  as it will call gst_video_frame_unmap() twice.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7344>
+
+2024-08-01 12:15:17 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* ext/qt6/qt6glwindow.cc:
+	  qt6glwindow: Only use GL_READ_FRAMEBUFFER when we do blits
+	  This fbo target is not always supported, and should only be used
+	  along with the frame buffer blit extension.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7295>
+
+2024-07-31 09:06:21 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* ext/qt6/qt6glwindow.cc:
+	  qt6: glwindow: Don't leak previously rendered buffer
+	  If the consumer reads the buffers too slowily, simply unref the
+	  previously rendered buffer instead of leaking it.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7289>
+
+2023-02-13 16:49:40 +0800  Hou Qi <qi.hou@nxp.com>
+
+	* sys/v4l2/gstv4l2object.c:
+	* sys/v4l2/gstv4l2object.h:
+	  v4l2: Fix colorimetry mismatch for encoded format with RGB color-matrix
+	  video-info supports encoded format to have RGB color-matrix, while
+	  v4l2object just leave the v4l2 matrix to default when mapping
+	  GST_VIDEO_COLOR_MATRIX_RGB. It causes gst matrix changed to be
+	  GST_VIDEO_COLOR_MATRIX_BT601 when mapping v4l2 colorimetry.
+	  So add support for encoded format with RGB color-matrix in v4l2object.
+	  Note that for M2M encoders, we should in theory assume that that we can
+	  transfer this value from OUTPUT to CAPTURE queues, though its only true
+	  if the drivers does not do CSC. For now, we don't support any RGB
+	  codecs, but leaving a note for the future.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7284>
+
+2024-07-29 14:39:06 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2object.c:
+	  v4l2object: SRGB colorspace is documented limited-range
+	  Split JPEG and SRGB so that we can follow the specified difference. The
+	  SRGB definition in V4L2 does not follow the standard, and is document
+	  so. This is also why JPEG colorspace exists.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7284>
+
+2024-07-29 11:40:01 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2object.c:
+	  v4l2object: Fix size of plane_size array calculation
+	  Due to missing parenthesys, only the first element of the array was
+	  being cleared. As it is a staticly sized array in the object, this
+	  code could also be simplified.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7284>
+
+2024-07-29 11:37:29 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2object.c:
+	  v4l2object: Fix translation of quantization
+	  The V4L2_MAP_QUANTIZATION macro has been fixed to something a lot saner,
+	  fix our replica accordingly. The new macro now simply set the quantization
+	  to full range is the pixel formats is RGB based, or if the JPEG
+	  colorspace is used.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7284>
+
+2024-07-29 16:48:02 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* meson.build:
+	  Back to development after 1.24.6
+
 === release 1.24.6 ===
 
 2024-07-29 16:41:37 +0100  Tim-Philipp Müller <tim@centricular.com>
