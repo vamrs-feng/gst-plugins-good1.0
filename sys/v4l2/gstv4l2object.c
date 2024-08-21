@@ -1526,6 +1526,23 @@ gst_v4l2_object_v4l2fourcc_is_rgb (guint32 fourcc)
   return ret;
 }
 
+static gboolean
+gst_v4l2_object_v4l2fourcc_is_codec (guint32 fourcc)
+{
+  gint i;
+
+  for (i = 0; i < GST_V4L2_FORMAT_COUNT; i++) {
+    if (gst_v4l2_formats[i].format == fourcc) {
+      if (gst_v4l2_formats[i].flags & (GST_V4L2_CODEC | GST_V4L2_TRANSPORT))
+        return TRUE;
+      else
+        return FALSE;
+    }
+  }
+
+  return FALSE;
+}
+
 static GstStructure *
 gst_v4l2_object_v4l2fourcc_to_bare_struct (guint32 fourcc)
 {
@@ -2245,12 +2262,12 @@ static gboolean
 gst_v4l2_object_get_colorspace (GstV4l2Object * v4l2object,
     struct v4l2_format *fmt, GstVideoColorimetry * cinfo)
 {
-  gboolean is_rgb =
-      gst_v4l2_object_v4l2fourcc_is_rgb (fmt->fmt.pix.pixelformat);
+  gboolean is_rgb = FALSE;
   enum v4l2_colorspace colorspace;
   enum v4l2_quantization range;
   enum v4l2_ycbcr_encoding matrix;
   enum v4l2_xfer_func transfer;
+  guint32 pixelformat;
   gboolean ret = TRUE;
 
   if (V4L2_TYPE_IS_MULTIPLANAR (fmt->type)) {
@@ -2258,12 +2275,24 @@ gst_v4l2_object_get_colorspace (GstV4l2Object * v4l2object,
     range = fmt->fmt.pix_mp.quantization;
     matrix = fmt->fmt.pix_mp.ycbcr_enc;
     transfer = fmt->fmt.pix_mp.xfer_func;
+    pixelformat = fmt->fmt.pix_mp.pixelformat;
   } else {
     colorspace = fmt->fmt.pix.colorspace;
     range = fmt->fmt.pix.quantization;
     matrix = fmt->fmt.pix.ycbcr_enc;
     transfer = fmt->fmt.pix.xfer_func;
+    pixelformat = fmt->fmt.pix.pixelformat;
   }
+
+  /* Detect that we are dealing with RGB, this can be that the pixelformat is
+   * an RGB format, or we have an encoded format for which RGB color matrix
+   * was set in set_format. */
+  if (gst_v4l2_object_v4l2fourcc_is_rgb (pixelformat) ||
+      (v4l2object->matrix == GST_VIDEO_COLOR_MATRIX_RGB &&
+          gst_v4l2_object_v4l2fourcc_is_codec (pixelformat)))
+    is_rgb = TRUE;
+  else
+    is_rgb = FALSE;
 
   /* First step, set the defaults for each primaries */
   switch (colorspace) {
@@ -2280,6 +2309,11 @@ gst_v4l2_object_get_colorspace (GstV4l2Object * v4l2object,
       cinfo->primaries = GST_VIDEO_COLOR_PRIMARIES_BT709;
       break;
     case V4L2_COLORSPACE_SRGB:
+      cinfo->range = GST_VIDEO_COLOR_RANGE_16_235;
+      cinfo->matrix = GST_VIDEO_COLOR_MATRIX_BT601;
+      cinfo->transfer = GST_VIDEO_TRANSFER_SRGB;
+      cinfo->primaries = GST_VIDEO_COLOR_PRIMARIES_BT709;
+      break;
     case V4L2_COLORSPACE_JPEG:
       cinfo->range = GST_VIDEO_COLOR_RANGE_0_255;
       cinfo->matrix = GST_VIDEO_COLOR_MATRIX_BT601;
@@ -2342,11 +2376,7 @@ gst_v4l2_object_get_colorspace (GstV4l2Object * v4l2object,
       break;
     case V4L2_QUANTIZATION_DEFAULT:
       /* replicated V4L2_MAP_QUANTIZATION_DEFAULT macro behavior */
-      if (is_rgb && colorspace == V4L2_COLORSPACE_BT2020)
-        cinfo->range = GST_VIDEO_COLOR_RANGE_16_235;
-      else if (is_rgb || matrix == V4L2_YCBCR_ENC_XV601
-          || matrix == V4L2_YCBCR_ENC_XV709
-          || colorspace == V4L2_COLORSPACE_JPEG)
+      if (is_rgb || colorspace == V4L2_COLORSPACE_JPEG)
         cinfo->range = GST_VIDEO_COLOR_RANGE_0_255;
       else
         cinfo->range = GST_VIDEO_COLOR_RANGE_16_235;
@@ -3604,8 +3634,7 @@ gst_v4l2_object_save_format (GstV4l2Object * v4l2object,
     if ((align->padding_left + align->padding_top) > 0)
       GST_WARNING_OBJECT (v4l2object->dbg_obj,
           "Left and top padding is not permitted for tiled formats");
-    memset (v4l2object->plane_size, 0,
-        sizeof (v4l2object->plane_size[0] * GST_VIDEO_MAX_PLANES));
+    memset (v4l2object->plane_size, 0, sizeof (v4l2object->plane_size));
   } else {
     if (!gst_video_info_align_full (info, align, v4l2object->plane_size)) {
       GST_WARNING_OBJECT (v4l2object->dbg_obj, "Failed to align video info");
@@ -3702,6 +3731,18 @@ gst_v4l2_video_colorimetry_matches (const GstVideoColorimetry * cinfo,
       && gst_video_colorimetry_is_equal (cinfo, &ci_jpeg))
     return TRUE;
 
+  /* bypass check the below GST_VIDEO_TRANSFER_ARIB_STD_B67 type, 
+   * because kernel do not support it. GST_VIDEO_TRANSFER_ARIB_STD_B67 is cast
+   * to GST_VIDEO_TRANSFER_BT2020_12 type in gst_v4l2_object_get_colorspace */
+  if (info.colorimetry.transfer == GST_VIDEO_TRANSFER_ARIB_STD_B67) {
+    info.colorimetry.transfer = cinfo->transfer;
+    GST_WARNING
+        ("v4l2 framework do not support GST_VIDEO_TRANSFER_ARIB_STD_B67");
+
+    if (gst_video_colorimetry_is_equal (&info.colorimetry, cinfo))
+      return TRUE;
+  }
+
   /* bypass check the below transfer types, because those types are cast to
    * V4L2_XFER_FUNC_NONE type when try format or set format and V4L2_XFER_FUNC_NONE
    * type is cast to GST_VIDEO_TRANSFER_GAMMA10 type in gst_v4l2_object_get_colorspace */
@@ -3796,6 +3837,7 @@ gst_v4l2_object_set_format_full (GstV4l2Object * v4l2object, GstCaps * caps,
   gst_video_info_init (&info);
   gst_video_alignment_reset (&align);
   v4l2object->transfer = GST_VIDEO_TRANSFER_UNKNOWN;
+  v4l2object->matrix = GST_VIDEO_COLOR_MATRIX_UNKNOWN;
 
   if (!gst_v4l2_object_get_caps_info (v4l2object, caps, &fmtdesc, &info))
     goto invalid_caps;
@@ -3826,12 +3868,16 @@ gst_v4l2_object_set_format_full (GstV4l2Object * v4l2object, GstCaps * caps,
   /* We first pick the main colorspace from the primaries */
   switch (info.colorimetry.primaries) {
     case GST_VIDEO_COLOR_PRIMARIES_BT709:
-      /* There is two colorspaces using these primaries, use the range to
-       * differentiate */
-      if (info.colorimetry.range == GST_VIDEO_COLOR_RANGE_16_235)
-        colorspace = V4L2_COLORSPACE_REC709;
-      else
-        colorspace = V4L2_COLORSPACE_SRGB;
+      /* There is three colorspaces using these primaries, use the range
+       * and format type to differentiate them  */
+      if (info.colorimetry.range == GST_VIDEO_COLOR_RANGE_16_235) {
+        if (GST_VIDEO_INFO_IS_RGB (&info))
+          colorspace = V4L2_COLORSPACE_SRGB;
+        else
+          colorspace = V4L2_COLORSPACE_REC709;
+      } else {
+        colorspace = V4L2_COLORSPACE_JPEG;
+      }
       break;
     case GST_VIDEO_COLOR_PRIMARIES_BT2020:
       colorspace = V4L2_COLORSPACE_BT2020;
@@ -3878,6 +3924,8 @@ gst_v4l2_object_set_format_full (GstV4l2Object * v4l2object, GstCaps * caps,
 
   switch (info.colorimetry.matrix) {
     case GST_VIDEO_COLOR_MATRIX_RGB:
+      /* save the matrix so we can restore it on get() call from default */
+      v4l2object->matrix = GST_VIDEO_COLOR_MATRIX_RGB;
       /* Unspecified, leave to default */
       break;
       /* FCC is about the same as BT601 with less digit */
@@ -4567,6 +4615,7 @@ gst_v4l2_object_acquire_format (GstV4l2Object * v4l2object, GstVideoInfo * info)
   gst_video_info_init (info);
   gst_video_alignment_reset (&align);
   v4l2object->transfer = GST_VIDEO_TRANSFER_UNKNOWN;
+  v4l2object->matrix = GST_VIDEO_COLOR_MATRIX_UNKNOWN;
 
   memset (&fmt, 0x00, sizeof (struct v4l2_format));
   fmt.type = v4l2object->type;
