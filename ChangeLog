@@ -1,3 +1,105 @@
+=== release 1.24.8 ===
+
+2024-09-19 12:01:21 +0200  Tim-Philipp Müller <tim@centricular.com>
+
+	* NEWS:
+	* RELEASE:
+	* gst-plugins-good.doap:
+	* meson.build:
+	  Release 1.24.8
+
+2024-08-13 16:38:37 -0400  Nicolas Dufresne <nicolas.dufresne@collabora.com>
+
+	* sys/v4l2/gstv4l2object.c:
+	* sys/v4l2/gstv4l2videoenc.c:
+	  v4l2: encoder: Add dynamic framerate support
+	  This is not trully supported in V4L2, but we can emulate this similar to
+	  what other elements do. In this patch we ensure that 0/1 is supported by
+	  encoders (caps query),and uses a default of 30fps whenever we need to
+	  set a framerate into the driver.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7545>
+
+2024-09-11 13:23:35 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* gst/matroska/matroska-mux.c:
+	  matroskamux: Include end padding in the block duration for Opus streams
+	  It has to be included in the block duration but in GStreamer we're not
+	  including it in the buffer duration, so it has to be added again here.
+	  Not including it in the block duration can lead to fatal errors when playing
+	  back with Firefox if there are more padding samples than actual samples, e.g.
+	  > D/MediaDemuxer WebMDemuxer[7f6a0808b900] ::GetNextPacket: Padding frames larger
+	  > than packet size, flagging the packet for error (padding: {13500000,1000000000},
+	  > duration: {6000,1000000}, already processed: false)
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7517>
+
+2024-09-05 22:07:24 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* ext/adaptivedemux2/gstadaptivedemux.c:
+	* gst/deinterlace/gstdeinterlace.c:
+	* gst/monoscope/gstmonoscope.c:
+	* gst/shapewipe/gstshapewipe.c:
+	* gst/videomixer/videomixer2.c:
+	  video: Don't overshoot QoS earliest time by a factor of 2
+	  By setting the earliest time to timestamp + 2 * diff there would be a difference
+	  of 1 * diff between the current clock time and the earliest time the element
+	  would let through in the future. If e.g. a frame is arriving 30s late at the
+	  sink, then not just all frames up to that point would be dropped but also 30s of
+	  frames after the current clock time.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7518>
+
+2024-09-11 08:28:39 +0300  Sebastian Dröge <sebastian@centricular.com>
+
+	* gst/multifile/gstsplitmuxsink.c:
+	  splitmuxsink: Override LATENCY query to pretend to downstream that we're not live
+	  splitmuxsink can't possibly know how much latency it will introduce as it always
+	  keeps one GOP around before outputting something. This breaks the latency
+	  configuration of the pipeline and we're better off just pretending that
+	  everything downstream of the sinkpads is not live.
+	  Especially muxers that are based on aggregator and time out on the latency
+	  deadline can easily misbehave otherwise as the deadline will be exceeded usually.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7515>
+
+2024-09-09 13:49:58 +0200  Wim Taymans <wtaymans@redhat.com>
+
+	* ext/jack/gstjackaudiosrc.c:
+	  jackaudiosrc: actually use the queried ports from JACK
+	  When no ports are given, gst_jack_get_ports() is called to get all the
+	  (physical) output ports but then the result is ignored, triggering the
+	  "No physical output ports found..." error.
+	  Instead, move the queried ports to the variable we're going to use
+	  later.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7488>
+
+2024-09-09 11:23:53 -0400  Randy Li (ayaka) <ayaka@soulik.info>
+
+	* sys/v4l2/gstv4l2bufferpool.c:
+	  v4l2bufferpool: actually queue back the empty buffer flagged LAST
+	  The buffer would fail at gst_v4l2_is_buffer_valid() before,
+	  since it has a reference on it, it is not writable.
+	  Fixes: 105d232fdec1 ("v4l2bufferpool: queue back the buffer flagged LAST but empty")
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7485>
+
+2024-09-02 17:45:30 +0900  Hou Qi <qi.hou@nxp.com>
+
+	* sys/v4l2/gstv4l2videoenc.c:
+	  v4l2videoenc: unref buffer pool after usage properly
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7478>
+
+2024-08-29 12:10:23 -0400  Thibault Saunier <tsaunier@igalia.com>
+
+	* sys/osxaudio/gstosxaudiosink.c:
+	* sys/osxaudio/gstosxaudiosrc.c:
+	  osxaudio: Avoid dangling pointer on shutdown
+	  When tearing down the elements we were still referring to the ringbuffer unique_id
+	  as our property while it was already freed, leading to potential segfaults when
+	  accessing the property.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/7451>
+
+2024-08-21 12:33:28 +0100  Tim-Philipp Müller <tim@centricular.com>
+
+	* meson.build:
+	  Back to development after 1.24.7
+
 === release 1.24.7 ===
 
 2024-08-21 12:25:15 +0100  Tim-Philipp Müller <tim@centricular.com>
