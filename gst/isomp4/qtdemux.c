@@ -6217,7 +6217,7 @@ extract_cc_from_data (QtDemuxStream * stream, const guint8 * data, gsize size,
             else
               GST_WARNING_OBJECT (stream->pad,
                   "Got multiple [cdat] atoms in a c608 sample. This is unsupported for now. Please file a bug");
-          } else {
+          } else if (fourcc == FOURCC_cdt2) {
             if (cdt2 == NULL)
               cdt2 =
                   convert_to_s334_1a (data + atom_length + 8,
@@ -6225,6 +6225,10 @@ extract_cc_from_data (QtDemuxStream * stream, const guint8 * data, gsize size,
             else
               GST_WARNING_OBJECT (stream->pad,
                   "Got multiple [cdt2] atoms in a c608 sample. This is unsupported for now. Please file a bug");
+          } else {
+            GST_WARNING_OBJECT (stream->pad,
+                "Unknown second data atom (%" GST_FOURCC_FORMAT ") for CEA608",
+                GST_FOURCC_ARGS (fourcc));
           }
         }
       }
@@ -11394,7 +11398,8 @@ qtdemux_inspect_transformation_matrix (GstQTDemux * qtdemux,
       /* NOP */
     } else if (QTCHECK_MATRIX (matrix, 0, 1, G_MAXUINT16, 0)) {
       rotation_tag = "rotate-90";
-    } else if (QTCHECK_MATRIX (matrix, G_MAXUINT16, 0, 0, G_MAXUINT16)) {
+    } else if (QTCHECK_MATRIX (matrix, G_MAXUINT16, 0, 0, G_MAXUINT16) ||
+        QTCHECK_MATRIX (matrix, G_MAXUINT16, 0, 0, 1)) {
       rotation_tag = "rotate-180";
     } else if (QTCHECK_MATRIX (matrix, 0, G_MAXUINT16, 1, 0)) {
       rotation_tag = "rotate-270";
@@ -12219,9 +12224,12 @@ qtdemux_parse_trak (GstQTDemux * qtdemux, GNode * trak)
               else
                 size = len - 0x8;
 
-              if (size < 1)
-                /* No real data, so break out */
-                break;
+              /* No real data, so skip */
+              if (size < 1) {
+                len -= 8;
+                avc_data += 8;
+                continue;
+              }
 
               switch (QT_FOURCC (avc_data + 0x4)) {
                 case FOURCC_avcC:
@@ -12336,9 +12344,12 @@ qtdemux_parse_trak (GstQTDemux * qtdemux, GNode * trak)
               else
                 size = len - 0x8;
 
-              if (size < 1)
-                /* No real data, so break out */
-                break;
+              /* No real data, so skip */
+              if (size < 1) {
+                len -= 8;
+                hevc_data += 8;
+                continue;
+              }
 
               switch (QT_FOURCC (hevc_data + 0x4)) {
                 case FOURCC_hvcC:
@@ -12760,9 +12771,12 @@ qtdemux_parse_trak (GstQTDemux * qtdemux, GNode * trak)
               else
                 size = len - 8;
 
-              if (size < 1)
-                /* No real data, so break out */
-                break;
+              /* No real data, so skip */
+              if (size < 1) {
+                len -= 8;
+                vc1_data += 8;
+                continue;
+              }
 
               switch (QT_FOURCC (vc1_data + 0x4)) {
                 case GST_MAKE_FOURCC ('d', 'v', 'c', '1'):
@@ -12802,9 +12816,12 @@ qtdemux_parse_trak (GstQTDemux * qtdemux, GNode * trak)
               else
                 size = len - 0x8;
 
-              if (size < 1)
-                /* No real data, so break out */
-                break;
+              /* No real data, so skip */
+              if (size < 1) {
+                len -= 8;
+                av1_data += 8;
+                continue;
+              }
 
               switch (QT_FOURCC (av1_data + 0x4)) {
                 case FOURCC_av1C:
@@ -12912,9 +12929,12 @@ qtdemux_parse_trak (GstQTDemux * qtdemux, GNode * trak)
               else
                 size = len - 0x8;
 
-              if (size < 1)
-                /* No real data, so break out */
-                break;
+              /* No real data, so skip */
+              if (size < 1) {
+                len -= 8;
+                vpcc_data += 8;
+                continue;
+              }
 
               switch (QT_FOURCC (vpcc_data + 0x4)) {
                 case FOURCC_vpcC:
@@ -13414,9 +13434,12 @@ qtdemux_parse_trak (GstQTDemux * qtdemux, GNode * trak)
             else
               size = len - 8;
 
-            if (size < 1)
-              /* No real data, so break out */
-              break;
+            /* No real data, so skip */
+            if (size < 1) {
+              len -= 8;
+              wfex_data += 8;
+              continue;
+            }
 
             switch (QT_FOURCC (wfex_data + 4)) {
               case GST_MAKE_FOURCC ('w', 'f', 'e', 'x'):

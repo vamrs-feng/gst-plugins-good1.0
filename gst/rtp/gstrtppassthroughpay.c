@@ -411,8 +411,12 @@ gst_rtp_passthrough_pay_sink_event (GstPad * pad,
 
       s = gst_caps_get_structure (caps, 0);
 
-      gst_structure_get_uint (s, "payload", &self->pt);
-      gst_structure_get_uint (s, "clock-rate", &self->clock_rate);
+      if (!self->pt_override
+          && !gst_structure_get_int (s, "payload", &self->pt)) {
+        GST_WARNING_OBJECT (self, "Caps are missing payload type!");
+      }
+      if (!gst_structure_get_int (s, "clock-rate", &self->clock_rate))
+        GST_WARNING_OBJECT (self, "Caps are missing clock-rate!");
       if (gst_structure_get_uint (s, "ssrc", &self->ssrc))
         self->ssrc_set = TRUE;
       if (gst_structure_get_uint (s, "clock-base", &self->timestamp_offset))
