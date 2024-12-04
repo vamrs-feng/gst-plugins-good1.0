@@ -1530,7 +1530,7 @@ gst_v4l2_object_v4l2fourcc_to_bare_struct (guint32 fourcc)
       bayer_format = "bggr16le";
       break;
     case V4L2_PIX_FMT_SGBRG8:
-      bayer_format = "gbrgle";
+      bayer_format = "gbrg";
       break;
     case V4L2_PIX_FMT_SGBRG10:
       bayer_format = "gbrg10le";
@@ -1545,7 +1545,7 @@ gst_v4l2_object_v4l2fourcc_to_bare_struct (guint32 fourcc)
       bayer_format = "gbrg16le";
       break;
     case V4L2_PIX_FMT_SGRBG8:
-      bayer_format = "grbgle";
+      bayer_format = "grbg";
       break;
     case V4L2_PIX_FMT_SGRBG10:
       bayer_format = "grbg10le";
@@ -1560,7 +1560,7 @@ gst_v4l2_object_v4l2fourcc_to_bare_struct (guint32 fourcc)
       bayer_format = "grbg16le";
       break;
     case V4L2_PIX_FMT_SRGGB8:
-      bayer_format = "rggble";
+      bayer_format = "rggb";
       break;
     case V4L2_PIX_FMT_SRGGB10:
       bayer_format = "rggb10le";
@@ -2890,7 +2890,11 @@ gst_v4l2_object_probe_caps_for_format (GstV4l2Object * v4l2object,
     maxw = MIN (size.stepwise.max_width, G_MAXINT);
     maxh = MIN (size.stepwise.max_height, G_MAXINT);
 
-    /* FIXME: check for sanity and that min/max are multiples of the steps */
+    /* ensure maxes are multiples of the steps */
+    maxw -= maxw % step_w;
+    maxh -= maxh % step_h;
+
+    /* FIXME: check for sanity */
 
     /* we only query details for the max width/height since it's likely the
      * most restricted if there are any resolution-dependent restrictions */
