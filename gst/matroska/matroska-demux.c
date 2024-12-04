@@ -3891,9 +3891,13 @@ gst_matroska_demux_add_wvpk_header (GstElement * element,
   GstMatroskaTrackAudioContext *audiocontext =
       (GstMatroskaTrackAudioContext *) stream;
   GstBuffer *newbuf = NULL;
-  GstMapInfo map, outmap;
   guint8 *buf_data, *data;
   Wavpack4Header wvh;
+
+  if (!stream->codec_priv || stream->codec_priv_size < 2) {
+    GST_ERROR_OBJECT (element, "No or too small wavpack codec private data");
+    return GST_FLOW_ERROR;
+  }
 
   wvh.ck_id[0] = 'w';
   wvh.ck_id[1] = 'v';
@@ -3908,11 +3912,11 @@ gst_matroska_demux_add_wvpk_header (GstElement * element,
 
   if (audiocontext->channels <= 2) {
     guint32 block_samples, tmp;
+    GstMapInfo outmap;
     gsize size = gst_buffer_get_size (*buf);
 
     if (size < 4) {
       GST_ERROR_OBJECT (element, "Too small wavpack buffer");
-      gst_buffer_unmap (*buf, &map);
       return GST_FLOW_ERROR;
     }
 
@@ -3950,6 +3954,7 @@ gst_matroska_demux_add_wvpk_header (GstElement * element,
     *buf = newbuf;
     audiocontext->wvpk_block_index += block_samples;
   } else {
+    GstMapInfo map, outmap;
     guint8 *outdata = NULL;
     gsize buf_size, size;
     guint32 block_samples, flags, crc;
@@ -3976,7 +3981,7 @@ gst_matroska_demux_add_wvpk_header (GstElement * element,
     data += 4;
     size -= 4;
 
-    while (size > 12) {
+    while (size >= 12) {
       flags = GST_READ_UINT32_LE (data);
       data += 4;
       size -= 4;
@@ -4037,11 +4042,16 @@ gst_matroska_demux_add_wvpk_header (GstElement * element,
     }
     gst_buffer_unmap (*buf, &map);
 
-    newbuf = gst_adapter_take_buffer (adapter, gst_adapter_available (adapter));
+    size = gst_adapter_available (adapter);
+    if (size > 0) {
+      newbuf = gst_adapter_take_buffer (adapter, size);
+      gst_buffer_copy_into (newbuf, *buf,
+          GST_BUFFER_COPY_TIMESTAMPS | GST_BUFFER_COPY_FLAGS, 0, -1);
+    } else {
+      newbuf = NULL;
+    }
     g_object_unref (adapter);
 
-    gst_buffer_copy_into (newbuf, *buf,
-        GST_BUFFER_COPY_TIMESTAMPS | GST_BUFFER_COPY_FLAGS, 0, -1);
     gst_buffer_unref (*buf);
     *buf = newbuf;
 
@@ -4978,6 +4988,18 @@ gst_matroska_demux_parse_blockgroup_or_simpleblock (GstMatroskaDemux * demux,
       if (stream->postprocess_frame) {
         GST_LOG_OBJECT (demux, "running post process");
         ret = stream->postprocess_frame (GST_ELEMENT (demux), stream, &sub);
+        if (ret != GST_FLOW_OK) {
+          gst_clear_buffer (&sub);
+          goto next_lace;
+        }
+
+        if (sub == NULL) {
+          GST_WARNING_OBJECT (demux,
+              "Postprocessing buffer with timestamp %" GST_TIME_FORMAT
+              " for stream %d failed", GST_TIME_ARGS (buffer_timestamp),
+              stream_num);
+          goto next_lace;
+        }
       }
 
       /* At this point, we have a sub-buffer pointing at data within a larger
@@ -7161,8 +7183,7 @@ gst_matroska_demux_audio_caps (GstMatroskaTrackAudioContext *
 
       /* 18 is the waveformatex size */
       if (size > 18) {
-        codec_data = gst_buffer_new_wrapped_full (GST_MEMORY_FLAG_READONLY,
-            data + 18, size - 18, 0, size - 18, NULL, NULL);
+        codec_data = gst_buffer_new_memdup (data + 18, size - 18);
       }
 
       if (riff_audio_fmt)
