@@ -1,3 +1,81 @@
+=== release 1.24.11 ===
+
+2025-01-06 19:48:08 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* NEWS:
+	* RELEASE:
+	* gst-plugins-good.doap:
+	* meson.build:
+	  Release 1.24.11
+
+2025-01-06 20:30:51 +0800  Dean Zhang (张安迪) <dean.zhang@mediatek.com>
+
+	* sys/v4l2/gstv4l2videodec.c:
+	  v4l2videodec: release decode only frame in input list
+	  For some frames with decode-only flag, the v4l2 decoder will not
+	  put them in output list. The corresponding decode-only frames will
+	  be still kept in input list, which may cause potential performance
+	  issue when the input list is full. So release the decode-only frames
+	  according to the decode-only flag after they are processed by decoder
+	  driver.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/8247>
+
+2024-12-31 11:49:21 +0200  Sebastian Dröge <sebastian@centricular.com>
+
+	* gst/matroska/matroska-mux.c:
+	* tests/check/elements/matroskamux.c:
+	  matroskamux: Consider audio buffers as keyframes when writing out simpleblocks
+	  Otherwise mpv complains and considers the file broken.
+	  Fixes https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/4142
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/8246>
+
+2024-12-31 11:42:04 +0200  Sebastian Dröge <sebastian@centricular.com>
+
+	* gst/matroska/matroska-mux.c:
+	  matroskamux: Fix audio-only stream conditions
+	  The num_a_streams and related counters are used for pad numbers and don't give
+	  the absolute number of streams in this run of the muxer.
+	  Also, consider the output audio-only if there are more than 1 audio stream too.
+	  Fixes https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/4142
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/8246>
+
+2024-12-17 20:08:24 +0100  Christian Meissl <meissl.christian@gmail.com>
+
+	* gst/isomp4/qtdemux.c:
+	  qtdemux: fix accumulated base offset in segment seeks
+	  analog to fix for matroska-demux
+	  commit f3c126d07c8a85e76bf5abdfa7f140bbf20545ea
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/8244>
+
+2024-12-21 14:39:58 +0100  Robert Mader <robert.mader@collabora.com>
+
+	* docs/gst_plugins_cache.json:
+	* sys/v4l2/gstv4l2object.c:
+	  v4l2: object: Add P010 format
+	  For 10bit content. Tested with HEVC on a Pixel3a (qcom).
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/8197>
+
+2024-12-12 12:05:04 +1100  Matthew Waters <matthew@centricular.com>
+
+	* gst/rtp/gstrtppassthroughpay.c:
+	  rtppassthroughpay: ensure buffer is writable before mapping writable
+	  It is entirely possible that the incoming buffer into _chain() is not writable
+	  and will result in a critical when trying to map().
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/8137>
+
+2024-12-04 16:10:46 +0000  Philippe Normand <philn@igalia.com>
+
+	* gst/rtpmanager/gstrtpsession.c:
+	* gst/rtpmanager/rtpsession.c:
+	* gst/rtpmanager/rtpsession.h:
+	  rtpsession: Fix twcc stats structure leaks
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/8115>
+
+2024-12-03 23:39:54 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* meson.build:
+	  Back to development after 1.24.10
+
 === release 1.24.10 ===
 
 2024-12-03 23:29:07 +0000  Tim-Philipp Müller <tim@centricular.com>
