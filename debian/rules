@@ -57,6 +57,11 @@ ifneq (,$(filter $(DEB_HOST_ARCH), hurd-i386))
 conf_flags += -Dqt-egl=disabled
 endif
 
+# soup is not available on non-Linux
+ifeq ($(DEB_HOST_ARCH_OS),hurd)
+conf_flags+= -Dadaptivedemux2=disabled
+endif
+
 %:
 	dh $@
 
@@ -77,6 +82,7 @@ endif
 execute_after_dh_install:
 ifneq ($(DEB_HOST_ARCH_OS),hurd)
 	dh_install -pgstreamer1.0-plugins-good debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/gstreamer-1.0/libgstoss4.so
+	dh_install -pgstreamer1.0-plugins-good debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/gstreamer-1.0/libgstadaptivedemux2.so
 endif
 
 ifeq ($(DEB_HOST_ARCH_OS),linux)
