@@ -83,6 +83,7 @@ execute_after_dh_install:
 ifneq ($(DEB_HOST_ARCH_OS),hurd)
 	dh_install -pgstreamer1.0-plugins-good debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/gstreamer-1.0/libgstoss4.so
 	dh_install -pgstreamer1.0-plugins-good debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/gstreamer-1.0/libgstadaptivedemux2.so
+	dh_install -pgstreamer1.0-plugins-good debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/gstreamer-1.0/libgstsoup.so
 endif
 
 ifeq ($(DEB_HOST_ARCH_OS),linux)
