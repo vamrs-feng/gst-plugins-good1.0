@@ -59,7 +59,7 @@ endif
 
 # soup is not available on non-Linux
 ifeq ($(DEB_HOST_ARCH_OS),hurd)
-conf_flags+= -Dadaptivedemux2=disabled
+conf_flags+= -Dadaptivedemux2=disabled -Dsoup=disabled
 endif
 
 %:
