@@ -1,3 +1,10 @@
+gst-plugins-good1.0 (1.24.11-3) unstable; urgency=medium
+
+  * d/watch: pin on 1.24.x
+  * d/rules: disable soup plugins on hurd
+
+ -- Marc Leeman <marc.leeman@gmail.com>  Fri, 17 Jan 2025 14:32:21 +0100
+
 gst-plugins-good1.0 (1.24.11-2) unstable; urgency=medium
 
   * d/rules: disable adaptivedemux2 on hurd
