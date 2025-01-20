@@ -1,3 +1,9 @@
+gst-plugins-good1.0 (1.24.11-5) unstable; urgency=medium
+
+  * d: build fixes for hurd-amd64 (Closes: #1072337)
+
+ -- Marc Leeman <marc.leeman@gmail.com>  Mon, 20 Jan 2025 09:44:58 +0100
+
 gst-plugins-good1.0 (1.24.11-4) unstable; urgency=medium
 
   * d/rules: soup only when not hurd
