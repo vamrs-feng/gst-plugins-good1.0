@@ -31,14 +31,18 @@ gst_core_audio_remove_render_callback (GstCoreAudio * core_audio)
 {
   AURenderCallbackStruct input;
   OSStatus status;
+  AudioUnitPropertyID callback_type;
 
   /* Deactivate the render callback by calling SetRenderCallback
    * with a NULL inputProc.
    */
   input.inputProc = NULL;
   input.inputProcRefCon = NULL;
+  callback_type = core_audio->is_src ?
+      kAudioOutputUnitProperty_SetInputCallback :
+      kAudioUnitProperty_SetRenderCallback;
 
-  status = AudioUnitSetProperty (core_audio->audiounit, kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Global, 0,        /* N/A for global */
+  status = AudioUnitSetProperty (core_audio->audiounit, callback_type, kAudioUnitScope_Global, 0,       /* N/A for global */
       &input, sizeof (input));
 
   if (status) {
@@ -122,7 +126,11 @@ gst_core_audio_io_proc_start (GstCoreAudio * core_audio)
 
   core_audio->io_proc_needs_deactivation = FALSE;
 
+  // AudioOutputUnitStart on iOS can wait for the render callback to finish,
+  // where in our case we set the ringbuffer timestamp, which also needs the ringbuf lock.
+  GST_OBJECT_UNLOCK (core_audio->osxbuf);
   status = AudioOutputUnitStart (core_audio->audiounit);
+  GST_OBJECT_LOCK (core_audio->osxbuf);
   if (status) {
     GST_ERROR_OBJECT (core_audio->osxbuf, "AudioOutputUnitStart failed: %d",
         (int) status);
