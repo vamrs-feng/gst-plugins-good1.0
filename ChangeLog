@@ -1,3 +1,150 @@
+=== release 1.24.12 ===
+
+2025-01-29 20:12:29 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* NEWS:
+	* RELEASE:
+	* gst-plugins-good.doap:
+	* meson.build:
+	  Release 1.24.12
+
+2025-01-28 15:08:03 +0100  Alexander Slobodeniuk <aslobodeniuk@fluendo.com>
+
+	* gst/isomp4/gstqtmux.c:
+	  qtmux: fix critical warnings on negotiation error
+	  This pipeline fails to negotiate on my PC:
+	  gst-launch-1.0 v4l2src ! h264parse ! qtmux ! filesink location=t.mp4
+	  When it happens some critical glib warnings are emitted:
+	  -------------------------------
+	  GStreamer-CRITICAL **: 15:09:03.485: gst_mini_object_copy: assertion 'mini_object != NULL' failed
+	  GStreamer-CRITICAL **: 15:09:03.485: gst_mini_object_unref: assertion 'mini_object != NULL' failed
+	  GStreamer-CRITICAL **: 15:09:03.485: gst_caps_get_structure: assertion 'GST_IS_CAPS (caps)' failed
+	  GStreamer-CRITICAL **: 15:09:03.485: gst_structure_set_value: assertion 'structure != NULL' failed
+	  GStreamer-CRITICAL **: 15:09:03.485: gst_mini_object_unref: assertion 'mini_object != NULL' failed
+	  --------------------------------
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/8377>
+
+2025-01-04 10:03:42 +0100  Edward Hervey <edward@centricular.com>
+
+	* gst/multifile/gstsplitmuxsink.c:
+	  splitmuxsink: Fix wrong usage of GstClockTime vs GstClockTimeDiff
+	  This could potentially have caused issues (because of the rest of the code using
+	  checks for signed invalid values on a unsigned value)
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/8293>
+
+2025-01-04 10:03:12 +0100  Edward Hervey <edward@centricular.com>
+
+	* gst/multifile/gstsplitmuxsrc.c:
+	  splitmuxsrc: Add missing break
+	  This would cause the reconfigure path to be called
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/8293>
+
+2025-01-04 09:59:55 +0100  Edward Hervey <edward@centricular.com>
+
+	* ext/adaptivedemux2/gstadaptivedemux.c:
+	  adaptivedemux2: Add missing break
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/8293>
+
+2025-01-04 09:59:34 +0100  Edward Hervey <edward@centricular.com>
+
+	* ext/adaptivedemux2/gstadaptivedemux-stream.c:
+	* ext/adaptivedemux2/gstadaptivedemux-track.c:
+	* ext/adaptivedemux2/hls/gsthlsdemux-stream.c:
+	* ext/adaptivedemux2/hls/gsthlsdemux-util.c:
+	* ext/adaptivedemux2/hls/gsthlsdemux.c:
+	* ext/adaptivedemux2/hls/m3u8.c:
+	  adaptivedemux2: Fix usage of GstClockTime vs GstClockTimeDiff
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/8293>
+
+2025-01-02 12:24:03 +0100  Jochen Henneberg <jochen@centricular.com>
+
+	* gst/isomp4/qtdemux.c:
+	  qtdemux: Undef helper macros after use
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/8276>
+
+2024-12-18 08:44:30 +0100  Jochen Henneberg <jochen@centricular.com>
+
+	* gst/isomp4/qtdemux.c:
+	  qtdemux: Validate matrix before doing simplified multiply
+	  The matrix multiplication makes some assumption about the element
+	  values to simplify the math with fixpoint values. If this is allowed
+	  for the given matrices is now checked first.
+	  Then the debug output for matrix and a comment have been fixed.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/8276>
+
+2024-12-17 10:48:45 +0100  Jochen Henneberg <jochen@centricular.com>
+
+	* gst/isomp4/qtdemux.c:
+	  qtdemux: Fixup for orientation matrix parsing
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/8276>
+
+2024-12-10 21:34:48 +0100  Jochen Henneberg <jochen@centricular.com>
+
+	* gst/isomp4/qtdemux.c:
+	  qtdemux: Use mvhd transform matrix and support for flipping
+	  The mvhd matrix is now combined with the tkhd matrix. The combined
+	  matrix is then checked if it matches one of the standard values for
+	  GST_TAG_IMAGE_ORIENTATION.
+	  This check now includes matrices with flipping.
+	  Fixes #4064
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/8276>
+
+2025-01-07 09:31:26 +0100  Edward Hervey <edward@centricular.com>
+
+	* gst/multifile/gstsplitmuxsrc.c:
+	  splitmuxsrc: Ensure only a single stream-start event is pushed
+	  Since we are simulating a single output, we want to ensure only a single
+	  stream-start is pushed downstream. We do *not* want to send a (potentially) new
+	  stream start event after flushing (like after seeks).
+	  Fixes https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/4146
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/8284>
+
+2025-01-09 17:12:54 +0000  Will Miller <will.miller@pexip.com>
+
+	* gst/rtp/gstrtpvp9pay.c:
+	* tests/check/elements/rtpvp9.c:
+	  rtpvp9pay: fix profile parsing
+	  Incorrect parsing of these bits meant that we were incorrectly parsing
+	  the VP9 uncompressed bitstream header for some profiles, as the header
+	  is of variable length and format depending on the profile. Amongst
+	  various unintended effects, this caused the width and height from the SS
+	  to be incorrectly parsed and set in the caps.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/8283>
+
+2024-11-08 12:06:28 +0100  Piotr Brzeziński <piotr@centricular.com>
+
+	* sys/osxaudio/gstosxaudiosrc.c:
+	* sys/osxaudio/gstosxcoreaudio.h:
+	  osxaudiosrc: Work around timestamps on iOS not starting from 0
+	  On macOS, you always get your own 'timeline' for the AudioUnit session, so timestamps start from 0.
+	  On iOS however, AudioUnit seems to give you a 'shared' timeline so timestamps start at a later, non-0 point in time.
+	  Simply offsetting seems to do the trick.
+	  This was causing osxaudiosrc to not output any sound on iOS.
+	  Regressed in 2df9283d3f2ea06af5ebd6db03a6d545cac52f19
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/8263>
+
+2024-11-08 12:02:23 +0100  Piotr Brzeziński <piotr@centricular.com>
+
+	* sys/osxaudio/gstosxcoreaudiocommon.c:
+	  osxaudiosrc: Fix render callback removal when pausing/stopping
+	  At least on iOS, the 'input' callback kept being called after going to PAUSED.
+	  Specifying the right type (like in gst_core_audio_io_proc_start()) fixes that.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/8263>
+
+2024-11-08 11:57:49 +0100  Piotr Brzeziński <piotr@centricular.com>
+
+	* sys/osxaudio/gstosxcoreaudiocommon.c:
+	  osxaudio: Fix AudioOutputUnitStart() deadlock on iOS >=17
+	  At some point in iOS 17, this call started waiting for the first render callback (io_proc) to finish.
+	  In our case, that callback also takes the ringbuf object lock by calling gst_audio_ring_buffer_set_timestamp(),
+	  which results in a deadlock.
+	  Part-of: <https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/8263>
+
+2025-01-06 20:11:58 +0000  Tim-Philipp Müller <tim@centricular.com>
+
+	* meson.build:
+	  Back to development after 1.24.11
+
 === release 1.24.11 ===
 
 2025-01-06 19:48:08 +0000  Tim-Philipp Müller <tim@centricular.com>

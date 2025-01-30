@@ -11424,18 +11424,75 @@ qtdemux_parse_transformation_matrix (GstQTDemux * qtdemux,
   matrix[7] = gst_byte_reader_get_uint32_be_unchecked (reader);
   matrix[8] = gst_byte_reader_get_uint32_be_unchecked (reader);
 
+  /* The 2.30 value conversion does not work for negative values */
   GST_DEBUG_OBJECT (qtdemux, "Transformation matrix from atom %s", atom);
-  GST_DEBUG_OBJECT (qtdemux, "%u.%u %u.%u %u.%u", matrix[0] >> 16,
-      matrix[0] & 0xFFFF, matrix[1] >> 16, matrix[1] & 0xFF, matrix[2] >> 16,
-      matrix[2] & 0xFF);
-  GST_DEBUG_OBJECT (qtdemux, "%u.%u %u.%u %u.%u", matrix[3] >> 16,
-      matrix[3] & 0xFFFF, matrix[4] >> 16, matrix[4] & 0xFF, matrix[5] >> 16,
-      matrix[5] & 0xFF);
-  GST_DEBUG_OBJECT (qtdemux, "%u.%u %u.%u %u.%u", matrix[6] >> 16,
-      matrix[6] & 0xFFFF, matrix[7] >> 16, matrix[7] & 0xFF, matrix[8] >> 16,
-      matrix[8] & 0xFF);
+  GST_DEBUG_OBJECT (qtdemux, "%i.%u %i.%u %u.%u", (gint16) (matrix[0] >> 16),
+      matrix[0] & 0xFFFF, (gint16) (matrix[1] >> 16), matrix[1] & 0xFFFF,
+      matrix[2] >> 30, matrix[2] & 0x3FFFFFFF);
+  GST_DEBUG_OBJECT (qtdemux, "%i.%u %i.%u %u.%u", (gint16) (matrix[3] >> 16),
+      matrix[3] & 0xFFFF, (gint16) (matrix[4] >> 16), matrix[4] & 0xFFFF,
+      matrix[5] >> 30, matrix[5] & 0x3FFFFFFF);
+  GST_DEBUG_OBJECT (qtdemux, "%i.%u %i.%u %u.%u", (gint16) (matrix[6] >> 16),
+      matrix[6] & 0xFFFF, (gint16) (matrix[7] >> 16), matrix[7] & 0xFFFF,
+      matrix[8] >> 30, matrix[8] & 0x3FFFFFFF);
 
   return TRUE;
+}
+
+/* Check if all matrix elements are either 0, 1 or -1 */
+static gboolean
+qtdemux_transformation_matrix_is_simple (guint32 * m)
+{
+  int i;
+
+  for (i = 0; i < 9; i++) {
+    switch (i) {
+      case 2:
+      case 5:
+      case 8:
+        /* 2.30 */
+        if (m[i] != 0U && m[i] != (1U << 30) && m[i] != (3U << 30))
+          return FALSE;
+        break;
+      default:
+        /* 16.16 */
+        if (m[i] != 0U && m[i] != (1U << 16) && m[i] != (G_MAXUINT16 << 16))
+          return FALSE;
+        break;
+    }
+  }
+
+  return TRUE;
+}
+
+static void
+qtdemux_mul_transformation_matrix (GstQTDemux * qtdemux,
+    guint32 * a, guint32 * b, guint32 * c)
+{
+#define QTMUL_MATRIX(_a,_b) (((_a) == 0 || (_b) == 0) ? 0 : \
+      ((_a) == (_b) ? 1 : -1))
+#define QTADD_MATRIX(_a,_b) ((_a) + (_b) > 0 ? (1U << 16) : \
+      ((_a) + (_b) < 0) ? (G_MAXUINT16 << 16) : 0u)
+
+  if (!qtdemux_transformation_matrix_is_simple (a) ||
+      !qtdemux_transformation_matrix_is_simple (b)) {
+    GST_WARNING_OBJECT (qtdemux,
+        "Cannot handle transform matrix with element values other than 0, 1 or -1");
+    /* Pretend to have an identity matrix in this case */
+    c[1] = c[2] = c[3] = c[5] = c[6] = c[7] = 0;
+    c[0] = c[4] = (1U << 16);
+    c[8] = (1 << 30);
+  } else {
+    c[2] = c[5] = c[6] = c[7] = 0;
+    c[0] = QTADD_MATRIX (QTMUL_MATRIX (a[0], b[0]), QTMUL_MATRIX (a[1], b[3]));
+    c[1] = QTADD_MATRIX (QTMUL_MATRIX (a[0], b[1]), QTMUL_MATRIX (a[1], b[4]));
+    c[3] = QTADD_MATRIX (QTMUL_MATRIX (a[3], b[0]), QTMUL_MATRIX (a[4], b[3]));
+    c[4] = QTADD_MATRIX (QTMUL_MATRIX (a[3], b[1]), QTMUL_MATRIX (a[4], b[4]));
+    c[8] = a[8];
+  }
+
+#undef QTMUL_MATRIX
+#undef QTADD_MATRIX
 }
 
 static void
@@ -11447,7 +11504,7 @@ qtdemux_inspect_transformation_matrix (GstQTDemux * qtdemux,
  * [d e f]
  * [g h i]
  *
- * This macro will only compare value abdegh, it expects cfi to have already
+ * This macro will only compare value abde, it expects cfi to have already
  * been checked
  */
 #define QTCHECK_MATRIX(m,a,b,d,e) ((m)[0] == (a << 16) && (m)[1] == (b << 16) && \
@@ -11462,11 +11519,18 @@ qtdemux_inspect_transformation_matrix (GstQTDemux * qtdemux,
       /* NOP */
     } else if (QTCHECK_MATRIX (matrix, 0, 1, G_MAXUINT16, 0)) {
       rotation_tag = "rotate-90";
-    } else if (QTCHECK_MATRIX (matrix, G_MAXUINT16, 0, 0, G_MAXUINT16) ||
-        QTCHECK_MATRIX (matrix, G_MAXUINT16, 0, 0, 1)) {
+    } else if (QTCHECK_MATRIX (matrix, G_MAXUINT16, 0, 0, G_MAXUINT16)) {
       rotation_tag = "rotate-180";
     } else if (QTCHECK_MATRIX (matrix, 0, G_MAXUINT16, 1, 0)) {
       rotation_tag = "rotate-270";
+    } else if (QTCHECK_MATRIX (matrix, G_MAXUINT16, 0, 0, 1)) {
+      rotation_tag = "flip-rotate-0";
+    } else if (QTCHECK_MATRIX (matrix, 0, G_MAXUINT16, G_MAXUINT16, 0)) {
+      rotation_tag = "flip-rotate-90";
+    } else if (QTCHECK_MATRIX (matrix, 1, 0, 0, G_MAXUINT16)) {
+      rotation_tag = "flip-rotate-180";
+    } else if (QTCHECK_MATRIX (matrix, 0, 1, 1, 0)) {
+      rotation_tag = "flip-rotate-270";
     } else {
       GST_FIXME_OBJECT (qtdemux, "Unhandled transformation matrix values");
     }
@@ -11753,7 +11817,7 @@ qtdemux_parse_stereo_svmi_atom (GstQTDemux * qtdemux, QtDemuxStream * stream,
  * traks that do not decode to something (like strm traks) will not have a pad.
  */
 static gboolean
-qtdemux_parse_trak (GstQTDemux * qtdemux, GNode * trak)
+qtdemux_parse_trak (GstQTDemux * qtdemux, GNode * trak, guint32 * mvhd_matrix)
 {
   GstByteReader tkhd;
   int offset;
@@ -11925,14 +11989,20 @@ qtdemux_parse_trak (GstQTDemux * qtdemux, GNode * trak)
 
   /* parse rest of tkhd */
   if (stream->subtype == FOURCC_vide) {
+    guint32 tkhd_matrix[9];
     guint32 matrix[9];
 
     /* version 1 uses some 64-bit ints */
     if (!gst_byte_reader_skip (&tkhd, 20 + value_size))
       goto corrupt_file;
 
-    if (!qtdemux_parse_transformation_matrix (qtdemux, &tkhd, matrix, "tkhd"))
+    if (!qtdemux_parse_transformation_matrix (qtdemux, &tkhd, tkhd_matrix,
+            "tkhd"))
       goto corrupt_file;
+
+    /* calculate the final matrix from the mvhd_matrix and the tkhd matrix */
+    qtdemux_mul_transformation_matrix (qtdemux, mvhd_matrix, tkhd_matrix,
+        matrix);
 
     if (!gst_byte_reader_get_uint32_be (&tkhd, &w)
         || !gst_byte_reader_get_uint32_be (&tkhd, &h))
@@ -14816,11 +14886,14 @@ qtdemux_parse_tree (GstQTDemux * qtdemux)
   guint64 creation_time;
   GstDateTime *datetime = NULL;
   gint version;
+  GstByteReader mvhd_reader;
+  guint32 matrix[9];
 
   /* make sure we have a usable taglist */
   qtdemux->tag_list = gst_tag_list_make_writable (qtdemux->tag_list);
 
-  mvhd = qtdemux_tree_get_child_by_type (qtdemux->moov_node, FOURCC_mvhd);
+  mvhd = qtdemux_tree_get_child_by_type_full (qtdemux->moov_node,
+      FOURCC_mvhd, &mvhd_reader);
   if (mvhd == NULL) {
     GST_LOG_OBJECT (qtdemux, "No mvhd node found, looking for redirects.");
     return qtdemux_parse_redirects (qtdemux);
@@ -14831,14 +14904,25 @@ qtdemux_parse_tree (GstQTDemux * qtdemux)
     creation_time = QT_UINT64 ((guint8 *) mvhd->data + 12);
     qtdemux->timescale = QT_UINT32 ((guint8 *) mvhd->data + 28);
     qtdemux->duration = QT_UINT64 ((guint8 *) mvhd->data + 32);
+    if (!gst_byte_reader_skip (&mvhd_reader, 4 + 8 + 8 + 4 + 8))
+      return FALSE;
   } else if (version == 0) {
     creation_time = QT_UINT32 ((guint8 *) mvhd->data + 12);
     qtdemux->timescale = QT_UINT32 ((guint8 *) mvhd->data + 20);
     qtdemux->duration = QT_UINT32 ((guint8 *) mvhd->data + 24);
+    if (!gst_byte_reader_skip (&mvhd_reader, 4 + 4 + 4 + 4 + 4))
+      return FALSE;
   } else {
     GST_WARNING_OBJECT (qtdemux, "Unhandled mvhd version %d", version);
     return FALSE;
   }
+
+  if (!gst_byte_reader_skip (&mvhd_reader, 4 + 2 + 2 + 2 * 4))
+    return FALSE;
+
+  if (!qtdemux_parse_transformation_matrix (qtdemux, &mvhd_reader, matrix,
+          "mvhd"))
+    return FALSE;
 
   /* Moving qt creation time (secs since 1904) to unix time */
   if (creation_time != 0) {
@@ -14908,7 +14992,7 @@ qtdemux_parse_tree (GstQTDemux * qtdemux)
   /* parse all traks */
   trak = qtdemux_tree_get_child_by_type (qtdemux->moov_node, FOURCC_trak);
   while (trak) {
-    qtdemux_parse_trak (qtdemux, trak);
+    qtdemux_parse_trak (qtdemux, trak, matrix);
     /* iterate all siblings */
     trak = qtdemux_tree_get_sibling_by_type (trak, FOURCC_trak);
   }

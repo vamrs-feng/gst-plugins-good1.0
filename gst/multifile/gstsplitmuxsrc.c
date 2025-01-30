@@ -1177,7 +1177,6 @@ gst_splitmux_push_flush_stop (GstSplitMuxSrc * splitmux, guint32 seqnum)
     gst_event_ref (e);
     gst_pad_push_event (GST_PAD_CAST (target), e);
     target->sent_caps = FALSE;
-    target->sent_stream_start = FALSE;
     target->sent_segment = FALSE;
   }
   SPLITMUX_SRC_PADS_RUNLOCK (splitmux);
@@ -1445,6 +1444,7 @@ splitmux_src_pad_event (GstPad * pad, GstObject * parent, GstEvent * event)
 
       ret = gst_splitmux_src_activate_part (splitmux, i, flags);
       SPLITMUX_SRC_UNLOCK (splitmux);
+      break;
     }
     case GST_EVENT_RECONFIGURE:{
       GST_DEBUG_OBJECT (splitmux, "reconfigure event on pad %" GST_PTR_FORMAT,
