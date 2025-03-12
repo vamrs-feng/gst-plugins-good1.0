@@ -449,7 +449,7 @@ gst_v4l2_buffer_pool_alloc_buffer (GstBufferPool * bpool, GstBuffer ** buffer,
   GstVideoInfo *info;
 
   obj = pool->obj;
-  info = &obj->info;
+  info = &obj->info.vinfo;
 
   switch (obj->mode) {
     case GST_V4L2_IO_RW:
@@ -526,14 +526,18 @@ gst_v4l2_buffer_pool_set_config (GstBufferPool * bpool, GstStructure * config)
   gboolean updated = FALSE;
   gboolean ret;
 
-  pool->add_videometa =
-      gst_buffer_pool_config_has_option (config,
-      GST_BUFFER_POOL_OPTION_VIDEO_META);
-
   /* parse the config and keep around */
   if (!gst_buffer_pool_config_get_params (config, &caps, &size, &min_buffers,
           &max_buffers))
     goto wrong_config;
+
+  pool->add_videometa =
+      gst_buffer_pool_config_has_option (config,
+      GST_BUFFER_POOL_OPTION_VIDEO_META);
+
+  /* Always enable VideoMeta when we negotiate memory:DMABuf */
+  pool->have_dma_drm_caps = gst_video_is_dma_drm_caps (caps);
+  pool->add_videometa |= pool->have_dma_drm_caps;
 
   if (!gst_buffer_pool_config_get_allocator (config, &allocator, &params))
     goto wrong_config;
@@ -622,8 +626,8 @@ gst_v4l2_buffer_pool_set_config (GstBufferPool * bpool, GstStructure * config)
   }
 
   /* Always update the config to ensure the configured size matches */
-  gst_buffer_pool_config_set_params (config, caps, obj->info.size, min_buffers,
-      max_buffers);
+  gst_buffer_pool_config_set_params (config, caps, obj->info.vinfo.size,
+      min_buffers, max_buffers);
 
   /* keep a GstVideoInfo with defaults for the when we need to copy */
   gst_video_info_from_caps (&pool->caps_info, caps);
@@ -772,6 +776,17 @@ gst_v4l2_buffer_pool_streamoff (GstV4l2BufferPool * pool)
       g_atomic_int_add (&pool->num_queued, -1);
     }
   }
+}
+
+static void
+gst_v4l2_buffer_pool_group_released (GstV4l2BufferPool * pool,
+    GstV4l2MemoryGroup * group)
+{
+  gint index = group->buffer.index;
+
+  g_atomic_int_set (&pool->buffer_state[index], BUFFER_STATE_FREE);
+
+  gst_v4l2_buffer_pool_resurrect_buffer (pool);
 }
 
 static gboolean
@@ -937,7 +952,7 @@ gst_v4l2_buffer_pool_start (GstBufferPool * bpool)
 
     pool->group_released_handler =
         g_signal_connect_swapped (pool->vallocator, "group-released",
-        G_CALLBACK (gst_v4l2_buffer_pool_resurrect_buffer), pool);
+        G_CALLBACK (gst_v4l2_buffer_pool_group_released), pool);
     ret = gst_v4l2_buffer_pool_streamon (pool);
   }
 
@@ -1244,7 +1259,7 @@ gst_v4l2_buffer_pool_dqbuf (GstV4l2BufferPool * pool, GstBuffer ** buffer,
   GstV4l2Object *obj = pool->obj;
   GstClockTime timestamp;
   GstV4l2MemoryGroup *group;
-  const GstVideoInfo *info = &obj->info;
+  const GstVideoInfo *info = &obj->info.vinfo;
   gint i;
   gint old_buffer_state;
 
@@ -1797,7 +1812,7 @@ gst_v4l2_buffer_pool_new (GstV4l2Object * obj, GstCaps * caps)
   gst_object_ref (obj->element);
 
   config = gst_buffer_pool_get_config (GST_BUFFER_POOL_CAST (pool));
-  gst_buffer_pool_config_set_params (config, caps, obj->info.size, 0, 0);
+  gst_buffer_pool_config_set_params (config, caps, obj->info.vinfo.size, 0, 0);
   /* This will simply set a default config, but will not configure the pool
    * because min and max are not valid */
   gst_buffer_pool_set_config (GST_BUFFER_POOL_CAST (pool), config);
@@ -1827,7 +1842,7 @@ gst_v4l2_do_read (GstV4l2BufferPool * pool, GstBuffer * buf)
   GstMapInfo map;
   gint toread;
 
-  toread = obj->info.size;
+  toread = obj->info.vinfo.size;
 
   GST_LOG_OBJECT (pool, "reading %d bytes into buffer %p", toread, buf);
 
@@ -2258,7 +2273,8 @@ void
 gst_v4l2_buffer_pool_copy_at_threshold (GstV4l2BufferPool * pool, gboolean copy)
 {
   GST_OBJECT_LOCK (pool);
-  pool->enable_copy_threshold = copy;
+  /* Ignore copy threashold when memory:DMABuf caps features is in used */
+  pool->enable_copy_threshold = copy && !pool->have_dma_drm_caps;
   GST_OBJECT_UNLOCK (pool);
 }
 
