@@ -519,6 +519,9 @@ GST_START_TEST (test_no_rbs_for_internal_senders)
   GHashTable *sr_ssrcs;
   GHashTable *rb_ssrcs, *tmp_set;
 
+  /* push latency or the RTPSource won't be ready to produce RTCP */
+  gst_harness_push_upstream_event (h->send_rtp_h, gst_event_new_latency (0));
+
   /* Push RTP from our send SSRCs */
   for (j = 0; j < 5; j++) {     /* packets per ssrc */
     for (k = 0; k < 2; k++) {   /* number of ssrcs */
@@ -654,6 +657,9 @@ GST_START_TEST (test_internal_sources_timeout)
     res = session_harness_recv_rtp (h, buf);
     fail_unless_equals_int (GST_FLOW_OK, res);
   }
+
+  /* push latency or the RTPSource won't be ready to produce RTCP */
+  gst_harness_push_upstream_event (h->send_rtp_h, gst_event_new_latency (0));
 
   /* verify that rtpsession has sent RR for an internally-created
    * RTPSource that is using the internal-ssrc */
@@ -877,6 +883,9 @@ GST_START_TEST (test_dont_lock_on_stats)
   g_signal_connect (h->session, "notify::stats",
       G_CALLBACK (stats_test_cb), &cb_called);
 
+  /* push latency or the RTPSource won't be ready to produce RTCP */
+  gst_harness_push_upstream_event (h->send_rtp_h, gst_event_new_latency (0));
+
   /* Push RTP buffer to make sure RTCP-thread have started */
   fail_unless_equals_int (GST_FLOW_OK,
       session_harness_send_rtp (h, generate_test_buffer (0, 0xDEADBEEF)));
@@ -959,6 +968,9 @@ GST_START_TEST (test_ignore_suspicious_bye)
   g_signal_connect (h->session, "notify::stats",
       G_CALLBACK (suspicious_bye_cb), &cb_called);
 
+  /* push latency or the RTPSource won't be ready to produce RTCP */
+  gst_harness_push_upstream_event (h->send_rtp_h, gst_event_new_latency (0));
+
   /* Push RTP buffer making our internal SSRC=0xDEADBEEF */
   fail_unless_equals_int (GST_FLOW_OK,
       session_harness_send_rtp (h, generate_test_buffer (0, 0xDEADBEEF)));
@@ -977,6 +989,72 @@ GST_START_TEST (test_ignore_suspicious_bye)
 
 GST_END_TEST;
 
+GST_START_TEST (test_rr_stats_assignment)
+{
+  SessionHarness *h = session_harness_new ();
+  GstFlowReturn res;
+  GstBuffer *in_buf, *rtcp_buf;
+  gint i, j;
+
+  guint ssrcs[] = {
+    0x01BADBAD,
+    0xDEADBEEF,
+  };
+
+  /* receive buffers with multiple ssrcs */
+  for (i = 0; i < 2; i++) {
+    for (j = 0; j < G_N_ELEMENTS (ssrcs); j++) {
+      in_buf = generate_test_buffer (i, ssrcs[j]);
+      res = session_harness_recv_rtp (h, in_buf);
+      fail_unless_equals_int (GST_FLOW_OK, res);
+    }
+  }
+
+  /* crank the rtcp-thread and pull out the rtcp-packet we have generated */
+  session_harness_crank_clock (h);
+  rtcp_buf = session_harness_pull_rtcp (h);
+
+  g_assert (rtcp_buf != NULL);
+  fail_unless (gst_rtcp_buffer_validate (rtcp_buf));
+
+  /* Now take this RTCP buffer to a second 'sender' session and check
+   * that the RR info gets assigned to the correct internal senders */
+  session_harness_free (h);
+  h = session_harness_new ();
+
+  /* Send some packets to create the sources */
+  fail_unless_equals_int (GST_FLOW_OK,
+      session_harness_send_rtp (h, generate_test_buffer (0, 0x01BADBAD)));
+  fail_unless_equals_int (GST_FLOW_OK,
+      session_harness_send_rtp (h, generate_test_buffer (0, 0xDEADBEEF)));
+
+  session_harness_recv_rtcp (h, rtcp_buf);
+
+  for (i = 0; i < G_N_ELEMENTS (ssrcs); i++) {
+    guint32 ssrc = ssrcs[i], rb_ssrc;
+    GObject *source;
+    GstStructure *stats;
+    gboolean have_rb = FALSE;
+
+    g_signal_emit_by_name (h->internal_session, "get-source-by-ssrc", ssrc,
+        &source);
+
+    g_object_get (source, "stats", &stats, NULL);
+
+    GST_DEBUG ("Got stats from source %" GST_PTR_FORMAT " %" GST_PTR_FORMAT,
+        source, stats);
+
+    fail_unless (gst_structure_get_boolean (stats, "have-rb", &have_rb));
+    fail_unless (gst_structure_get_uint (stats, "rb-ssrc", &rb_ssrc));
+    fail_unless (rb_ssrc == ssrc);
+
+    gst_structure_free (stats);
+    g_object_unref (source);
+  }
+  session_harness_free (h);
+}
+
+GST_END_TEST;
 static GstBuffer *
 create_buffer (guint8 * data, gsize size)
 {
@@ -2291,6 +2369,9 @@ GST_START_TEST (test_disable_sr_timestamp)
   guint32 rtptime;
 
   g_object_set (h->internal_session, "disable-sr-timestamp", TRUE, NULL);
+
+  /* push latency or the RTPSource won't be ready to produce RTCP */
+  gst_harness_push_upstream_event (h->send_rtp_h, gst_event_new_latency (0));
 
   /* Push RTP buffer to make sure RTCP-thread have started */
   fail_unless_equals_int (GST_FLOW_OK,
@@ -4321,6 +4402,7 @@ rtpsession_suite (void)
   tcase_add_test (tc_chain, test_receive_rtcp_app_packet);
   tcase_add_test (tc_chain, test_dont_lock_on_stats);
   tcase_add_test (tc_chain, test_ignore_suspicious_bye);
+  tcase_add_test (tc_chain, test_rr_stats_assignment);
 
   tcase_add_test (tc_chain, test_ssrc_collision_when_sending);
   tcase_add_test (tc_chain, test_ssrc_collision_when_sending_loopback);

@@ -19,8 +19,9 @@
  */
 
 /**
- * SECTION:qmlglsrc
+ * SECTION:element-qmlglsrc
  *
+ * A video src that captures a window from a QML view.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -304,8 +305,8 @@ gst_qt_src_query (GstBaseSrc * bsrc, GstQuery * query)
           qt_src->display, qt_src->context, qt_src->qt_context))
         return TRUE;
 
-      /* fallthrough */
     }
+    /* FALLTHROUGH */
     default:
       res = GST_BASE_SRC_CLASS (parent_class)->query (bsrc, query);
       break;

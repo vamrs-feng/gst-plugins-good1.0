@@ -3352,10 +3352,15 @@ atom_trak_update_duration (AtomTRAK * trak, guint64 moov_timescale)
 {
   trak->mdia.mdhd.time_info.duration =
       atom_stts_get_total_duration (&trak->mdia.minf.stbl.stts);
+  if (trak->mdia.mdhd.time_info.duration > G_MAXUINT32)
+    trak->mdia.mdhd.header.version = 1;
+
   if (trak->mdia.mdhd.time_info.timescale != 0) {
     trak->tkhd.duration =
         gst_util_uint64_scale_round (trak->mdia.mdhd.time_info.duration,
         moov_timescale, trak->mdia.mdhd.time_info.timescale);
+    if (trak->tkhd.duration > G_MAXUINT32)
+      trak->tkhd.header.version = 1;
   } else {
     trak->tkhd.duration = 0;
   }
@@ -3434,6 +3439,10 @@ atom_moov_update_duration (AtomMOOV * moov)
   }
   moov->mvhd.time_info.duration = duration;
   moov->mvex.mehd.fragment_duration = duration;
+  if (duration > G_MAXUINT32) {
+    moov->mvhd.header.version = 1;
+    moov->mvex.mehd.header.version = 1;
+  }
 }
 
 void
@@ -5797,6 +5806,35 @@ build_vpcC_extension (guint8 profile, guint8 level, guint8 bit_depth,
   data_block_len = gst_byte_writer_get_size (&bw);
   data_block = gst_byte_writer_reset_and_get_data (&bw);
   atom_data = atom_data_new_from_data (FOURCC_vpcC, data_block, data_block_len);
+  g_free (data_block);
+
+  return build_atom_info_wrapper ((Atom *) atom_data, atom_data_copy_data,
+      atom_data_free);
+}
+
+AtomInfo *
+build_vvcC_extension (guint8 version, guint32 flags,
+    const GstBuffer * codec_data)
+{
+  AtomData *atom_data;
+  GstByteWriter bw;
+  gboolean hdl = TRUE;
+  guint8 *data_block;
+  guint data_block_len;
+
+  gst_byte_writer_init (&bw);
+  hdl &= gst_byte_writer_put_uint8 (&bw, version);
+  hdl &= gst_byte_writer_put_uint24_be (&bw, flags & 0xFFFFFF);
+  hdl &= gst_byte_writer_put_buffer (&bw, (GstBuffer *) codec_data, 0, -1);
+
+  if (!hdl) {
+    GST_WARNING ("error creating header");
+    return NULL;
+  }
+
+  data_block_len = gst_byte_writer_get_size (&bw);
+  data_block = gst_byte_writer_reset_and_get_data (&bw);
+  atom_data = atom_data_new_from_data (FOURCC_vvcC, data_block, data_block_len);
   g_free (data_block);
 
   return build_atom_info_wrapper ((Atom *) atom_data, atom_data_copy_data,

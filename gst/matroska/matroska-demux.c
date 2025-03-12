@@ -354,6 +354,7 @@ gst_matroska_demux_reset (GstElement * element)
   demux->upstream_format_is_time = FALSE;
   demux->segment_seqnum = 0;
   demux->requested_seek_time = GST_CLOCK_TIME_NONE;
+  demux->requested_seek_duration = GST_CLOCK_TIME_NONE;
   demux->seek_offset = -1;
   demux->audio_lead_in_ts = 0;
   demux->building_index = FALSE;
@@ -1137,6 +1138,164 @@ gst_matroska_demux_parse_stream (GstMatroskaDemux * demux, GstEbmlRead * ebml,
               break;
             }
 
+            case GST_MATROSKA_ID_VIDEOPROJECTION:
+            {
+              gboolean supported = TRUE;
+              gboolean found_type = FALSE;
+              gboolean found_yaw = FALSE;
+              gboolean found_pitch = FALSE;
+              gboolean found_roll = FALSE;
+              gdouble pose_yaw;
+              gdouble pose_roll;
+
+              if ((ret = gst_ebml_read_master (ebml, &id)) != GST_FLOW_OK)
+                break;
+
+              while (ret == GST_FLOW_OK &&
+                  gst_ebml_read_has_remaining (ebml, 1, TRUE)) {
+                if ((ret = gst_ebml_peek_id (ebml, &id)) != GST_FLOW_OK)
+                  break;
+
+                switch (id) {
+                  case GST_MATROSKA_ID_VIDEOPROJECTIONTYPE:{
+                    guint64 num;
+
+                    if ((ret =
+                            gst_ebml_read_uint (ebml, &id,
+                                &num)) != GST_FLOW_OK)
+                      break;
+
+                    if (num != 0) {
+                      supported = FALSE;
+                      GST_WARNING_OBJECT (demux,
+                          "ProjectionType value not supported: %"
+                          G_GUINT64_FORMAT, num);
+                    }
+
+                    found_type = TRUE;
+                    break;
+                  }
+
+                  case GST_MATROSKA_ID_VIDEOPROJECTIONPRIVATE:{
+                    supported = FALSE;
+                    ret = gst_ebml_read_skip (ebml);
+                    GST_WARNING_OBJECT (demux,
+                        "ProjectionPrivate not supported");
+                    break;
+                  }
+
+                  case GST_MATROSKA_ID_VIDEOPROJECTIONPOSEYAW:{
+                    if ((ret =
+                            gst_ebml_read_float (ebml, &id,
+                                &pose_yaw)) != GST_FLOW_OK)
+                      break;
+
+                    if (!(G_APPROX_VALUE (pose_yaw, 0.0, FLT_EPSILON)
+                            || G_APPROX_VALUE (pose_yaw, 180.0, FLT_EPSILON)
+                            || G_APPROX_VALUE (pose_yaw, -180.0, FLT_EPSILON))) {
+                      supported = FALSE;
+                      GST_WARNING_OBJECT (demux,
+                          "ProjectionPoseYaw value not supported: %f",
+                          pose_yaw);
+                    }
+
+                    found_yaw = TRUE;
+                    break;
+                  }
+
+                  case GST_MATROSKA_ID_VIDEOPROJECTIONPOSEPITCH:{
+                    gdouble pose_pitch;
+
+                    if ((ret =
+                            gst_ebml_read_float (ebml, &id,
+                                &pose_pitch)) != GST_FLOW_OK)
+                      break;
+
+                    if (!G_APPROX_VALUE (pose_pitch, 0.0, FLT_EPSILON)) {
+                      supported = FALSE;
+                      GST_WARNING_OBJECT (demux,
+                          "ProjectionPosePitch value not supported: %f",
+                          pose_pitch);
+                    }
+
+                    found_pitch = TRUE;
+                    break;
+                  }
+
+                  case GST_MATROSKA_ID_VIDEOPROJECTIONPOSEROLL:{
+                    if ((ret =
+                            gst_ebml_read_float (ebml, &id,
+                                &pose_roll)) != GST_FLOW_OK)
+                      break;
+
+                    if (!(G_APPROX_VALUE (pose_roll, 0.0, FLT_EPSILON)
+                            || G_APPROX_VALUE (pose_roll, 90.0, FLT_EPSILON)
+                            || G_APPROX_VALUE (pose_roll, -90.0, FLT_EPSILON)
+                            || G_APPROX_VALUE (pose_roll, 180.0, FLT_EPSILON)
+                            || G_APPROX_VALUE (pose_roll, -180.0, FLT_EPSILON))) {
+                      supported = FALSE;
+                      GST_WARNING_OBJECT (demux,
+                          "ProjectionPoseRoll value not supported: %f",
+                          pose_roll);
+                    }
+
+                    found_roll = TRUE;
+                    break;
+                  }
+
+                  default:
+                    ret = gst_ebml_read_skip (ebml);
+                    break;
+                }
+              }
+
+              if (supported && found_type && found_yaw && found_pitch &&
+                  found_roll) {
+                const gchar *rotation_tag = NULL;
+                gboolean flip;
+
+                flip = G_APPROX_VALUE (pose_yaw, 180.0, FLT_EPSILON)
+                    || G_APPROX_VALUE (pose_yaw, -180.0, FLT_EPSILON);
+
+                if (G_APPROX_VALUE (pose_roll, 0.0, FLT_EPSILON)) {
+                  if (flip)
+                    rotation_tag = "flip-rotate-0";
+                  else
+                    rotation_tag = "rotate-0";
+                } else if (G_APPROX_VALUE (pose_roll, 180.0, FLT_EPSILON)
+                    || G_APPROX_VALUE (pose_roll, -180.0, FLT_EPSILON)) {
+                  if (flip)
+                    rotation_tag = "flip-rotate-180";
+                  else
+                    rotation_tag = "rotate-180";
+                } else if (G_APPROX_VALUE (pose_roll, 90.0, FLT_EPSILON)) {
+                  if (flip)
+                    rotation_tag = "flip-rotate-270";
+                  else
+                    rotation_tag = "rotate-270";
+                } else if (G_APPROX_VALUE (pose_roll, -90.0, FLT_EPSILON)) {
+                  if (flip)
+                    rotation_tag = "flip-rotate-90";
+                  else
+                    rotation_tag = "rotate-90";
+                } else {
+                  GST_FIXME_OBJECT (demux,
+                      "Unhandled transformation matrix values");
+                }
+
+                if (rotation_tag) {
+                  gst_tag_list_add (context->tags, GST_TAG_MERGE_REPLACE,
+                      GST_TAG_IMAGE_ORIENTATION, rotation_tag, NULL);
+                  context->tags_changed = TRUE;
+                }
+              } else {
+                GST_WARNING_OBJECT (demux,
+                    "Some Projection value not supported or missing - ignoring");
+              }
+
+              break;
+            }
+
             default:
               GST_WARNING_OBJECT (demux,
                   "Unknown TrackVideo subelement 0x%x - ignoring", id);
@@ -1461,12 +1620,6 @@ gst_matroska_demux_parse_stream (GstMatroskaDemux * demux, GstEbmlRead * ebml,
         break;
       }
 
-      default:
-        GST_WARNING ("Unknown TrackEntry subelement 0x%x - ignoring", id);
-        /* pass-through */
-
-        /* we ignore these because they're nothing useful (i.e. crap)
-         * or simply not implemented yet. */
       case GST_MATROSKA_ID_TRACKMINCACHE:
       case GST_MATROSKA_ID_TRACKMAXCACHE:
       case GST_MATROSKA_ID_MAXBLOCKADDITIONID:
@@ -1478,6 +1631,12 @@ gst_matroska_demux_parse_stream (GstMatroskaDemux * demux, GstEbmlRead * ebml,
       case GST_MATROSKA_ID_CODECINFOURL:
       case GST_MATROSKA_ID_CODECDOWNLOADURL:
       case GST_MATROSKA_ID_CODECDECODEALL:
+        /* we ignore these because they're nothing useful (i.e. crap)
+         * or simply not implemented yet. */
+        ret = gst_ebml_read_skip (ebml);
+        break;
+      default:
+        GST_WARNING ("Unknown TrackEntry subelement 0x%x - ignoring", id);
         ret = gst_ebml_read_skip (ebml);
         break;
     }
@@ -3019,6 +3178,8 @@ finish:
     /* track real position we should start at */
     GST_DEBUG_OBJECT (demux, "storing segment start");
     demux->requested_seek_time = seeksegment.position;
+    if (GST_CLOCK_TIME_IS_VALID (stop))
+      demux->requested_seek_duration = stop - cur;
     demux->seek_offset = entry->pos + demux->common.ebml_segment_start;
     GST_OBJECT_UNLOCK (demux);
     /* need to seek to cluster start to pick up cluster time */
@@ -3147,10 +3308,6 @@ gst_matroska_demux_handle_seek_push (GstMatroskaDemux * demux, GstPad * pad,
     return FALSE;
   }
 
-  if (stop_type != GST_SEEK_TYPE_NONE && stop != GST_CLOCK_TIME_NONE) {
-    GST_DEBUG_OBJECT (demux, "Seek end-time not supported in streaming mode");
-    return FALSE;
-  }
 
   if (!(flags & GST_SEEK_FLAG_FLUSH)) {
     GST_DEBUG_OBJECT (demux,
@@ -3696,6 +3853,17 @@ gst_matroska_demux_sync_streams (GstMatroskaDemux * demux)
       GST_OBJECT_UNLOCK (demux);
       gst_pad_push_event (context->pad, event);
       GST_OBJECT_LOCK (demux);
+
+      /* Mark the stream as EOS if synchronization advanced past the requested segment. */
+      if (GST_CLOCK_TIME_IS_VALID (demux->common.segment.stop)
+          && stop >= demux->common.segment.stop) {
+        GST_DEBUG_OBJECT (demux,
+            "Synchronizing stream %d to %" GST_TIME_FORMAT
+            " put the stream after the segment stop at %" GST_TIME_FORMAT,
+            stream_nr, GST_TIME_ARGS (stop),
+            GST_TIME_ARGS (demux->common.segment.stop));
+        context->eos = TRUE;
+      }
     }
   }
 
@@ -4359,6 +4527,27 @@ gst_matroska_demux_parse_blockmore (GstMatroskaDemux * demux,
   return ret;
 }
 
+static gboolean
+gst_matroska_demux_all_streams_eos (GstMatroskaDemux * demux)
+{
+  if (G_UNLIKELY (!demux->common.src->len)) {
+    return FALSE;
+  }
+
+  guint i;
+
+  g_assert (demux->common.num_streams == demux->common.src->len);
+  for (i = 0; i < demux->common.src->len; i++) {
+    GstMatroskaTrackContext *context = g_ptr_array_index (demux->common.src,
+        i);
+    if (context->eos == FALSE)
+      return FALSE;
+  }
+
+
+  return TRUE;
+}
+
 /* BLOCKADDITIONS
  *  BLOCKMORE
  *    BLOCKADDID
@@ -4716,7 +4905,10 @@ gst_matroska_demux_parse_blockgroup_or_simpleblock (GstMatroskaDemux * demux,
       /* We shouldn't modify upstream driven TIME FORMAT segment */
       if (!demux->upstream_format_is_time) {
         segment->start = clace_time;
-        segment->stop = demux->common.segment.stop;
+        if (GST_CLOCK_TIME_IS_VALID (demux->requested_seek_duration)) {
+          segment->stop = clace_time + demux->requested_seek_duration;
+          demux->requested_seek_duration = GST_CLOCK_TIME_NONE;
+        }
         segment->time = segment->start - demux->stream_start_time;
         segment->position = segment->start - demux->stream_start_time;
       }
@@ -5139,6 +5331,10 @@ eos:
   {
     stream->eos = TRUE;
     ret = GST_FLOW_OK;
+    if (demux->streaming && gst_matroska_demux_all_streams_eos (demux)) {
+      ret = GST_FLOW_EOS;
+    }
+
     /* combine flows */
     ret = gst_flow_combiner_update_pad_flow (demux->flowcombiner, stream->pad,
         ret);
@@ -6028,25 +6224,12 @@ gst_matroska_demux_loop (GstPad * pad)
     goto pause;
 
   /* check if we're at the end of a configured segment */
-  if (G_LIKELY (demux->common.src->len)) {
-    guint i;
-
-    g_assert (demux->common.num_streams == demux->common.src->len);
-    for (i = 0; i < demux->common.src->len; i++) {
-      GstMatroskaTrackContext *context = g_ptr_array_index (demux->common.src,
-          i);
-      GST_DEBUG_OBJECT (context->pad, "pos %" GST_TIME_FORMAT,
-          GST_TIME_ARGS (context->pos));
-      if (context->eos == FALSE)
-        goto next;
-    }
-
+  if (gst_matroska_demux_all_streams_eos (demux)) {
     GST_INFO_OBJECT (demux, "All streams are EOS");
     ret = GST_FLOW_EOS;
     goto eos;
   }
 
-next:
   if (G_UNLIKELY (demux->cached_length == G_MAXUINT64 ||
           demux->common.offset >= demux->cached_length)) {
     demux->cached_length = gst_matroska_read_common_get_length (&demux->common);
@@ -6244,6 +6427,10 @@ next:
   ret = gst_matroska_demux_parse_id (demux, id, length, needed);
   if (ret == GST_FLOW_EOS) {
     /* need more data */
+    if (gst_matroska_demux_all_streams_eos (demux)) {
+      return GST_FLOW_EOS;
+    }
+
     return GST_FLOW_OK;
   } else if (ret != GST_FLOW_OK) {
     return ret;
@@ -6366,8 +6553,8 @@ gst_matroska_demux_handle_sink_event (GstPad * pad, GstObject * parent,
       demux->cluster_offset = 0;
       demux->cluster_prevsize = 0;
       GST_OBJECT_UNLOCK (demux);
-      /* fall-through */
     }
+      /* FALLTHROUGH */
     default:
       res = gst_pad_event_default (pad, parent, event);
       break;
@@ -6656,6 +6843,25 @@ gst_matroska_demux_video_caps (GstMatroskaTrackVideoContext *
           NULL);
     }
     *codec_name = g_strdup ("HEVC");
+  } else if (!strcmp (codec_id, GST_MATROSKA_CODEC_ID_VIDEO_MPEGI_VVC)) {
+    caps = gst_caps_new_empty_simple ("video/x-h266");
+    if (data) {
+      GstBuffer *priv;
+
+      gst_codec_utils_h266_caps_set_level_tier_and_profile (caps, data, size);
+
+      priv = gst_buffer_new_memdup (data, size);
+      gst_caps_set_simple (caps, "codec_data", GST_TYPE_BUFFER, priv, NULL);
+      gst_buffer_unref (priv);
+
+      gst_caps_set_simple (caps, "stream-format", G_TYPE_STRING, "vvc1",
+          "alignment", G_TYPE_STRING, "au", NULL);
+    } else {
+      GST_WARNING ("No codec data found, assuming output is byte-stream");
+      gst_caps_set_simple (caps, "stream-format", G_TYPE_STRING, "byte-stream",
+          NULL);
+    }
+    *codec_name = g_strdup ("VVC");
   } else if ((!strcmp (codec_id, GST_MATROSKA_CODEC_ID_VIDEO_REALVIDEO1)) ||
       (!strcmp (codec_id, GST_MATROSKA_CODEC_ID_VIDEO_REALVIDEO2)) ||
       (!strcmp (codec_id, GST_MATROSKA_CODEC_ID_VIDEO_REALVIDEO3)) ||
