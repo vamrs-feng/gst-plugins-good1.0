@@ -1,3 +1,14 @@
+gst-plugins-good1.0 (1.26.0-1) unstable; urgency=medium
+
+  * Revert "d/watch: pin on 1.24.x"
+  * New upstream version 1.26.0
+  * d/control: bump GStreamer version dependency
+  * d/install: libgstsoup.so is not system version.
+  * d/control: update dependency version to 1.25.90
+  * d/control: update GStreamer dependencies to >= 1.26.0
+
+ -- Marc Leeman <marc.leeman@gmail.com>  Wed, 12 Mar 2025 10:28:56 +0100
+
 gst-plugins-good1.0 (1.24.12-1) unstable; urgency=medium
 
   * New upstream version 1.24.12
