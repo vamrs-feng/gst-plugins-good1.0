@@ -1,12 +1,15 @@
-This package was debianized by David I. Lehn <dlehn@debian.org> on
-Mon, 15 Jan 2001 18:21:37 -0500.
-
-It was downloaded from http://gstreamer.net/
-
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: Gstreamer Good Plugins 1.0
 Upstream-Contact: gstreamer-devel@lists.freedesktop.org
 Source: http://gstreamer.freedesktop.org
+  This package was debianized by David I. Lehn <dlehn@debian.org> on
+  Mon, 15 Jan 2001 18:21:37 -0500.
+
+  It was downloaded from http://gstreamer.net/
+
+Files: *
+Copyright: Contributors to the GStreamer project
+License: LGPL-2+
 
 Files: ext/aalib/gstaasink.c
  ext/aalib/gstaasink.h
