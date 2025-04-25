@@ -1,3 +1,10 @@
+gst-plugins-good1.0 (1.26.1-1) unstable; urgency=medium
+
+  * d/copyright: convert to DEP-5
+  * New upstream version 1.26.1
+
+ -- Marc Leeman <marc.leeman@gmail.com>  Fri, 25 Apr 2025 09:06:18 +0200
+
 gst-plugins-good1.0 (1.26.0-1) unstable; urgency=medium
 
   * Revert "d/watch: pin on 1.24.x"
