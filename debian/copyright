@@ -1278,7 +1278,7 @@ License: LGPL-2+
 Files: gst/monoscope/monoscope.c
 Copyright: 1998-2001, Andy Lo A Foe <andy@alsaplayer.org>
   2002, Richard Boulton <richard@tartarus.org>
-License: BSD (3 clause)
+License: BSD-3-clause
 
 Files: ltmain.sh
 Copyright: 1996-2001, 2003-2006
