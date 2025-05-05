@@ -834,7 +834,7 @@ Files: gst/effectv/gstradioac.c
 Copyright: 2001-2002, FUKUCHI Kentaro
   2001-2006, FUKUCHI Kentaro
   <2009> Sebastian Dröge <sebastian.droege@collabora.co.uk>
-License: LGPL
+License: LGPL-2+
 
 Files: gst/rtp/gstrtpmp4adepay.c
  gst/rtp/gstrtpmp4adepay.h
