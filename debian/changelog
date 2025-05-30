@@ -1,3 +1,18 @@
+gst-plugins-good1.0 (1.26.2-1) unstable; urgency=medium
+
+  * d/copyright: remove reference to ostal address of the Free Software Foundation (FSF).
+  * d/copyright: correct DEP-5 issue
+  * d/copyright: correct invalid short name BSD
+  * d/copyright: correct invalid short name bsd (3 clause)
+  * d/copyright: correct Copyright/License DEP-5
+  * d/copyright: more DEP-5 changes
+  * d/copyright: correct license gst/effectv/gstradioac.c
+  * d/copyright: add LGPL-2.1
+  * d/copyright: add LGPL-2
+  * New upstream version 1.26.2
+
+ -- Marc Leeman <marc.leeman@gmail.com>  Fri, 30 May 2025 09:27:39 +0200
+
 gst-plugins-good1.0 (1.26.1-1) unstable; urgency=medium
 
   * d/copyright: convert to DEP-5
