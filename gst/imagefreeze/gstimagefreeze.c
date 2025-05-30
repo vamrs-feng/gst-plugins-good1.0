@@ -641,8 +641,15 @@ gst_image_freeze_sink_event (GstPad * pad, GstObject * parent, GstEvent * event)
       /* fall-through */
     case GST_EVENT_SEGMENT:
       GST_DEBUG_OBJECT (pad, "Dropping event");
+      self->seqnum = GST_EVENT_SEQNUM (event);
       gst_event_unref (event);
       ret = TRUE;
+      break;
+    case GST_EVENT_FLUSH_STOP:
+      g_mutex_lock (&self->lock);
+      self->flushing = FALSE;
+      g_mutex_unlock (&self->lock);
+      ret = gst_pad_push_event (self->srcpad, event);
       break;
     case GST_EVENT_FLUSH_START:
       gst_image_freeze_reset (self);
