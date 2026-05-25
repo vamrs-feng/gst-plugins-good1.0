@@ -26,7 +26,7 @@ main_build_dep:
 	sudo apt-get build-dep . -y
 
 .PHONY: post_build_dep
-post_build_dep:
+post_build_dep: arm64_crossbuild_dep
 
 .PHONY: arm64_crossbuild_dep
 arm64_crossbuild_dep:
