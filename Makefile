@@ -7,8 +7,7 @@
 
 PROJECT ?= gst-plugins-good1.0
 CUSTOM_DEBUILD_ENV ?= DEB_BUILD_OPTIONS='parallel=1'
-CUSTOM_DEBUILD_ARG ?=
-
+CUSTOM_DEBUILD_ARG ?= -aarm64
 .DEFAULT_GOAL := all
 .PHONY: all
 all: build
